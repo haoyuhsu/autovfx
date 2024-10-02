@@ -1,0 +1,216 @@
+# Remember to import functions from edit_utils.py as needed.
+from edit_utils import detect_object, sample_point_on_object, sample_point_above_object, retrieve_asset, \
+    insert_object, remove_object, update_object, allow_physics, add_fire, add_smoke, set_static_animation, set_moving_animation \
+    init_material, retrieve_material, apply_material, allow_fracture, make_break, incinerate \
+    get_object_center_position, get_object_bottom_position, translate_object, rotate_object, scale_object, get_random_2D_rotation, get_random_3D_rotation, make_copy \
+    add_event, get_camera_position
+
+# Use insert_object for retrieved objects from database and update_object for detected objects from the scene.
+# Default position for retrieved objects is (0, 0, 0) and rotation is identity matrix.
+# Default position for detected objects from the scene may not be (0, 0, 0) and rotation is identity matrix.
+# translate_object takes in relative offset as input, not an absolute position.
+# rotate_object takes in 3x3 rotation matrix as input.
+# allow_fracture breaks the object into pieces when it collides with other objects. make_break breaks the object into pieces immediately. incinerate turns the object into ashes immediately.
+
+# To control effects of the object at specific time, use add_event function.
+# add_event(scene, object, event_type, start_frame, end_frame)
+# event_type: 'static', 'animation', 'physics', 'fire', 'smoke', 'break', 'incinerate'
+# start_frame: default is 1 for 'static', 'animation', 'physics', 'fire', 'smoke', and half of total frames for 'break' and 'incinerate'
+# end_frame: default is the total frames + 1 for 'static', 'animation', 'physics', 'fire', 'smoke', and not applicable for 'break' and 'incinerate'
+
+# Query: Insert an apple and make it break into pieces in the middle of the video.
+apple = retrieve_asset(scene, 'apple')
+add_event(scene, apple, 'break', start_frame=scene.total_frames//2)
+insert_object(scene, apple)
+
+# Query: Burn down the table into ashes after 2 seconds since the beginning of the video.
+table = detect_object(scene, 'table')
+add_event(scene, table, 'fire', start_frame=1, end_frame=scene.fps*2)
+add_event(scene, table, 'incinerate', start_frame=scene.fps*2)
+update_object(scene, table)
+
+# Query: Throw a flaming ball towards the water bottle.
+ball = retrieve_asset(scene, 'ball')
+water_bottle = detect_object(scene, 'water bottle')
+start_pos = get_camera_position(scene)
+end_pos = get_object_center_position(water_bottle)
+release_pos = start_pos + (end_pos - start_pos) * 0.5
+pos = np.array([start_pos, release_pos])
+ball = set_moving_animation(ball, pos)
+add_event(scene, ball, 'fire', start_frame=1)
+add_event(scene, ball, 'animation', start_frame=1, end_frame=4)
+add_event(scene, ball, 'physics', start_frame=4)  # Enable physics after the animation terminates.
+insert_object(scene, ball)
+
+# Query: Place a cup on the table.
+table_obj = detect_object(scene, 'table')
+pos = sample_point_on_object(scene, table_obj)
+cup = retrieve_asset(scene, 'cup')
+cup = translate_object(cup, pos)
+insert_object(scene, cup)
+
+# Query: Put a mug on the plate and a banana on the bed.
+plate_obj = detect_object(scene, 'plate')
+pos = sample_point_on_object(scene, plate_obj)
+mug = retrieve_asset(scene, 'mug')
+mug = translate_object(mug, pos)
+insert_object(scene, mug)
+bed_obj = detect_object(scene, 'bed')
+pos = sample_point_on_object(scene, bed_obj)
+banana = retrieve_asset(scene, 'banana')
+banana = translate_object(banana, pos)
+insert_object(scene, banana)
+
+# Query: Make 10 eggs filled inside the bowl.
+bowl_obj = detect_object(scene, 'bowl')
+egg = retrieve_asset(scene, 'egg')
+for i in range(10):
+    egg_copy = make_copy(egg)
+    pos = sample_point_on_object(scene, bowl_obj)
+    egg_copy = translate_object(egg_copy, pos)
+    insert_object(scene, egg_copy)
+
+# Query: Insert a coffee cup on the table and add fire on it.
+table_obj = detect_object(scene, 'table')
+pos = sample_point_on_object(scene, table_obj)
+cup = retrieve_asset(scene, 'coffee cup')
+cup = translate_object(cup, pos)
+add_fire(scene, cup)
+insert_object(scene, cup)
+
+# Query: Place a cup on the table and add smoke on it.
+table_obj = detect_object(scene, 'table')
+pos = sample_point_on_object(scene, table_obj)
+cup = retrieve_asset(scene, 'cup')
+cup = translate_object(cup, pos)
+add_smoke(scene, cup)
+insert_object(scene, cup)
+
+# Query: Put an animated Naruto on the table.
+table_obj = detect_object(scene, 'table')
+pos = sample_point_on_object(scene, table_obj)
+naruto = retrieve_asset(scene, 'naruto', is_animated=True)
+naruto = translate_object(naruto, pos)
+naruto = set_static_animation(naruto)
+insert_object(scene, naruto)
+
+# Query: Make an airplane fly around above the table.
+table_obj = detect_object(scene, 'table')
+airplane = retrieve_asset(scene, 'airplane', is_animated=True)
+pos_list = []
+for i in range(3):
+    pos = sample_point_above_object(scene, table_obj)
+    pos_list.append(pos)
+pos = np.array(pos_list)
+airplane = set_moving_animation(airplane, pos)
+insert_object(scene, airplane)
+
+# Query: Drop a ball on the table.
+table_obj = detect_object(scene, 'table')
+pos = sample_point_above_object(scene, table_obj)
+ball = retrieve_asset(scene, 'ball')
+ball = translate_object(ball, pos)
+rot_mat = get_random_3D_rotation()
+ball = rotate_object(ball, rot_mat)
+ball = allow_physics(ball)
+insert_object(scene, ball)
+
+# Query: Remove the cup from the scene.
+cup = detect_object(scene, 'cup')
+remove_object(scene, cup)
+
+# Query: Move the cup with an offset (0.0, 0.3, 0.0), scale it down bt 0.7, then rotate with random 2D rotation.
+cup = detect_object(scene, 'cup')
+cup = translate_object(cup, np.array([0.0, 0.3, 0.0]))
+rot = get_random_2D_rotation()
+cup = rotate_object(cup, rot)
+cup = scale_object(cup, 0.7)
+update_object(scene, cup)
+
+# Query: Move the cup to the ground.
+cup = detect_object(scene, 'cup')
+pos1 = get_object_bottom_position(cup)
+ground = detect_object(scene, 'ground')
+pos2 = sample_point_on_object(scene, ground)
+offset = pos2 - pos1
+cup = translate_object(cup, offset)
+update_object(scene, cup)
+
+# Query: Insert two cups on the table. One with wooden texture, the other with mirror texture.
+table_obj = detect_object(scene, 'table')
+cup = retrieve_asset(scene, 'cup')
+cup1 = make_copy(cup)
+mat1 = init_material()
+wood_mat_path = retrieve_material(scene, 'wood')
+mat1.material_path = wood_mat_path
+cup1 = apply_material(cup1, mat1)
+pos = sample_point_on_object(scene, table_obj)
+cup1 = translate_object(cup1, pos)
+insert_object(scene, cup1)
+cup2 = make_copy(cup)
+mat2 = init_material()
+mat2.is_mirror = True
+cup2 = apply_material(cup2, mat2)
+pos = sample_point_on_object(scene, table_obj)
+cup2 = translate_object(cup2, pos)
+insert_object(scene, cup2)
+
+# Query: Make the cup with metallic surface.
+cup = detect_object(scene, 'cup')
+mat = init_material()
+mat.roughness = 0.5
+mat.metallic = 1.0
+mat.specular = 0.5
+cup = apply_material(cup, mat)
+update_object(scene, cup)
+
+# Query: make the cup to have red color.
+cup = detect_object(scene, 'cup')
+mat = init_material()
+mat.rgb = np.array([255, 0, 0])
+cup = apply_material(cup, mat)
+update_object(scene, cup)
+
+# Query: Insert 3 cups on the table: one is red, one is blue, and the other is green.
+table_obj = detect_object(scene, 'table')
+cup = retrieve_asset(scene, 'cup')
+colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
+for color in colors:
+    cup_copy = make_copy(cup)
+    mat = init_material()
+    mat.rgb = np.array(color)
+    cup_copy = apply_material(cup_copy, mat)
+    pos = sample_point_on_object(scene, table_obj)
+    cup_copy = translate_object(cup_copy, pos)
+    insert_object(scene, cup_copy)
+
+# Query: add a box on the table covered with blanket.
+table_obj = detect_object(scene, 'table with blanket')
+box = retrieve_asset(scene, 'box')
+pos = sample_point_on_object(scene, table_obj)
+box = translate_object(box, pos)
+insert_object(scene, box)
+
+# Query: make the box in the scene to be able to fracture.
+box = detect_object(scene, 'box')
+box = allow_fracture(box)
+update_object(scene, box)
+
+# Query: insert 5 cups on the table, make them physics enabled and allow them to fracture.
+table_obj = detect_object(scene, 'table')
+cup = retrieve_asset(scene, 'cup')
+for i in range(5):
+    cup_copy = make_copy(cup)
+    pos = sample_point_on_object(scene, table_obj)
+    cup_copy = translate_object(cup_copy, pos)
+    cup_copy = allow_physics(cup_copy)
+    cup_copy = allow_fracture(cup_copy)
+    insert_object(scene, cup_copy)
+
+# Query: insert the apple that has same transformation as the chair.
+apple = retrieve_asset(scene, 'apple')
+chair = detect_object(scene, 'chair')
+apple = translate_object(apple, get_object_bottom_position(chair))
+apple = rotate_object(apple, chair['rot'])
+apple = scale_object(apple, chair['scale'])
+insert_object(scene, apple)
