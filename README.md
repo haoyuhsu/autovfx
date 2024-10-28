@@ -1,5 +1,16 @@
 # autovfx
 
+## TODO items
+- [x] Environment Setup
+- [x] Pretrained checkpoints, data, and software preparation
+- [x] Simulation example (Garden scene)
+- [ ] Details of pose extraction (SfM) and pose alignment
+- [ ] Code for sampling custom camera trajectory
+- [ ] Details of estimating relative scene scale
+- [ ] Details of training 3DGS
+- [ ] Details of surface reconstruction
+- [ ] Details of light estimation (indoor scenes)
+- [ ] Details of running simulations on waymo road scenes
 
 ## Environment Setup
 
