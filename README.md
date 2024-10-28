@@ -74,8 +74,8 @@ pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 conda install pytorch3d -c pytorch3d
 
 # Trimesh
-pip install trimesh
-pip install Rtree
+pip install trimesh==4.3.2
+pip install Rtree==1.2.0
 conda install -c conda-forge embree=2.17.7
 conda install -c conda-forge pyembree
 

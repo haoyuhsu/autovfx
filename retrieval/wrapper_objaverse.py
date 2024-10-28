@@ -92,7 +92,7 @@ def download_asset_from_objaverse(obj_ids, save_dir):
 
 def download_rendered_images_from_gobjaverse(args):
     obj_index, obj_id = args
-    assets_imgs_save_dir = './assets_rendering'
+    assets_imgs_save_dir = './_cache/assets_rendering_gobjaverse'
     end = 40 # hard-coded
     copy_items = ['.png'] # hard-coded
     oss_base_dir = os.path.join("https://virutalbuy-public.oss-cn-hangzhou.aliyuncs.com/share/aigc3d/objaverse", str(obj_index), "campos_512_v4")
@@ -172,6 +172,7 @@ def retrieve_asset_from_objaverse(obj_name, is_animated=False, random_pick=True)
     # if DOWNLOAD_TOP_K < SEARCH_TOP_K and DOWNLOAD_TOP_K < len(picked_uids):
 
     # download the pre-rendered images from GObjaverse
+    assets_imgs_save_dir = './_cache/assets_rendering_gobjaverse'
     obj2idx = {obj_id: id2idx[obj_id] for obj_id in picked_uids}  # Assuming obj_id_list is defined somewhere
     data = [(obj_index, obj_id) for obj_id, obj_index in obj2idx.items()]
     N_THREADS = 5
@@ -182,7 +183,7 @@ def retrieve_asset_from_objaverse(obj_name, is_animated=False, random_pick=True)
     score_list = []
     clip_text_feature = compute_clip_text_features(clip_model, clip_tokenizer, query_text)
     for obj_id, obj_dist in zip(picked_uids, picked_dists):
-        image_folder = os.path.join('./assets_rendering', obj_id)
+        image_folder = os.path.join(assets_imgs_save_dir, obj_id)
         clip_image_feature = compute_clip_image_features(clip_model, clip_preprocess, image_folder)
         clip_score = np.mean(np.dot(clip_text_feature, clip_image_feature.T))
         # clip_score = np.max(np.dot(clip_text_feature, clip_image_feature.T))
@@ -199,7 +200,7 @@ def retrieve_asset_from_objaverse(obj_name, is_animated=False, random_pick=True)
     picked_dists = picked_dists[:DOWNLOAD_TOP_K]
 
     # download the assets from Objaverse
-    save_dir = './assets'
+    save_dir = './_cache/assets'
     obj_paths = download_asset_from_objaverse(picked_uids, save_dir)
 
     for obj_id, obj_dist in zip(picked_uids, picked_dists):

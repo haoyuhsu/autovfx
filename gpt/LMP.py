@@ -68,23 +68,23 @@ class LMP:
             user2 = new_query
             
             ##### TODO: add image observation to the prompt
-            if self._cfg['reference_image_path'] is not None:
-                img = Image.open(self._cfg['reference_image_path'])
-                # make sure the image is not too large
-                orig_w, orig_h = img.size
-                if orig_w > 1080:
-                    scale = 1080 / orig_w
-                    img = img.resize((int(orig_w * scale), int(orig_h * scale)))
-                img_path = os.path.join(ROOT_DIR, 'tmp_img.png')
-                img.save(img_path)
-                base64_image = encode_image(img_path)
-                user2 += f"\n\nHere is the reference image for the scene:\n"
-                user2.append({
-                    "type": "image_url",
-                    "image_url": {
-                    "url": f"data:image/png;base64,{base64_image}"
-                    }
-                })
+            # if self._cfg['reference_image_path'] is not None:
+            #     img = Image.open(self._cfg['reference_image_path'])
+            #     # make sure the image is not too large
+            #     orig_w, orig_h = img.size
+            #     if orig_w > 1080:
+            #         scale = 1080 / orig_w
+            #         img = img.resize((int(orig_w * scale), int(orig_h * scale)))
+            #     img_path = os.path.join(ROOT_DIR, 'tmp_img.png')
+            #     img.save(img_path)
+            #     base64_image = encode_image(img_path)
+            #     user2 += f"\n\nHere is the reference image for the scene:\n"
+            #     user2.append({
+            #         "type": "image_url",
+            #         "image_url": {
+            #         "url": f"data:image/png;base64,{base64_image}"
+            #         }
+            #     })
 
             # handle given context (this was written originally for completion endpoint)
             if user1.split('\n')[-4].startswith('objects = ['):
@@ -213,9 +213,7 @@ def exec_safe(code_str, gvars=None, lvars=None):
     try:
 
         # FOR DEBUGGING: write the edit text to a global .txt file (without overwriting)
-        # with open("/home/shenlong/Documents/maxhsu/3D-Scene-Editing/editing_lmp_logs.txt", "a") as f:
-        #     f.write(f"{code_str}\n\n")
-        with open(os.path.join(ROOT_DIR, 'editing_lmp_logs.txt'), "a") as f:
+        with open(os.path.join(ROOT_DIR, 'logs_lmp_code_gen.txt'), "a") as f:
             f.write(f"{code_str}\n\n")
         
         # directly import custom functions

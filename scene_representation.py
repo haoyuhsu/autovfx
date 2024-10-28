@@ -66,13 +66,16 @@ class SceneRepresentation():
         self.traj_results_dir = os.path.join(self.results_dir, 'custom_camera_path', custom_traj_name)
         os.makedirs(os.path.join(self.traj_results_dir), exist_ok=True)
 
-        self.tracking_results_dir = os.path.join(self.traj_results_dir, 'track_with_deva')
+        self.tracking_results_dir = os.path.join(self.results_dir, 'track_with_deva', custom_traj_name)
         os.makedirs(self.tracking_results_dir, exist_ok=True)
 
-        self.blender_output_dir = os.path.join(self.traj_results_dir, hparams.blender_output_dir_name)
+        self.blender_output_dir = os.path.join(self.traj_results_dir, 'blender_output', hparams.blender_output_dir_name)
         os.makedirs(self.blender_output_dir, exist_ok=True)
 
-        self.cfg_path = os.path.join(self.traj_results_dir, hparams.blender_config_name)
+        self.cache_dir = os.path.join(ROOT_DIR, '_cache')
+        os.makedirs(self.cache_dir, exist_ok=True)
+
+        self.cfg_path = os.path.join(self.blender_output_dir, hparams.blender_config_name)
 
         self.custom_traj_name = custom_traj_name
         self.scene_scale = float(hparams.scene_scale) if not hparams.waymo_scene else 1.0
@@ -232,8 +235,7 @@ class SceneRepresentation():
     def set_basic_blender_cfg(self):
         new_cfg = {}
         new_cfg['edit_text'] = self.hparams.edit_text
-        new_cfg['results_dir'] = self.results_dir
-        new_cfg['traj_results_dir'] = self.traj_results_dir
+        new_cfg['blender_cache_dir'] = os.path.join(self.cache_dir, 'blender_rendering', self.dataset_dir.rstrip('/').split('/')[-1], self.custom_traj_name)
         new_cfg['im_width'], new_cfg['im_height'] = self.cameras['img_wh']
         new_cfg['K'] = self.cameras['K'].tolist()
         new_cfg['c2w'] = self.cameras['c2w'].tolist()

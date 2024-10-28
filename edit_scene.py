@@ -30,6 +30,6 @@ if __name__ == "__main__":
     hparams = get_opts()
     # print(hparams)
     # FOR DEBUGGING: write the edit text to a global .txt file (without overwriting)
-    with open(os.path.join(ROOT_DIR, 'editing_lmp_logs.txt'), "a") as f:
+    with open(os.path.join(ROOT_DIR, 'logs_lmp_code_gen.txt'), "a") as f:
         f.write(f"===== {hparams.edit_text} =====\n\n")
     run_scene_editing(hparams)

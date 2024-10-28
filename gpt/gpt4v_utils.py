@@ -55,7 +55,7 @@ def estimate_object_scale(img_path: str = None, object_name: str = None) -> floa
     model_name = "gpt-4-vision-preview" if has_img else "gpt-4-1106-preview"
     # model_name = "gpt-4o-2024-05-13"
 
-    print(model_name)
+    print('GPT model used:', model_name)
 
     # Option 1: use requests
     headers = {

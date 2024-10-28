@@ -1897,8 +1897,7 @@ all_3dgs_object_names = []     # list of names of all 3dgs objects (used for cus
 def run_blender_render(config_path):
     with open(config_path, 'r') as f:
         config = json.load(f)
-    results_dir = config['results_dir']
-    traj_results_dir = config['traj_results_dir']
+    blender_cache_dir = config['blender_cache_dir']
     h, w = config['im_height'], config['im_width']
     K = np.array(config['K'])
     c2w = np.array(config['c2w'])
@@ -1925,9 +1924,9 @@ def run_blender_render(config_path):
             K = K[anchor_frame_idx:anchor_frame_idx+1]
 
     if "output_dir_name" in config:
-        output_dir = os.path.join(traj_results_dir, config["output_dir_name"])
+        output_dir = os.path.join(blender_cache_dir, config["output_dir_name"])
     else:
-        output_dir = os.path.join(traj_results_dir, 'blend_results')
+        output_dir = os.path.join(blender_cache_dir, 'blend_results')
     os.makedirs(output_dir, exist_ok=True)
 
     # anti-aliasing rendering

@@ -91,18 +91,10 @@ def depth_check(depth1, depth2, option='naive', d_tol=0.1):
 
 def blend_frames(blend_results_dir, input_config_path=None):
 
-    root_dir = os.path.dirname(os.path.normpath(blend_results_dir))
-
-    # has_3dgs, has_smoke, has_fire = False, False, False
-    # if os.path.exists(os.path.join(blend_results_dir, 'rgb_obj_3dgs')):
-    #     has_3dgs = True
-    # if os.path.exists(os.path.join(blend_results_dir, 'rgb_smoke_fire')):
-    #     has_smoke = True
-    # if os.path.exists(os.path.join(blend_results_dir, 'rgb_smoke_fire_pre')):
-    #     has_smoke = True
-    #     has_fire = True
+    root_dir = os.path.dirname(os.path.normpath(os.path.dirname(os.path.normpath(blend_results_dir))))  # get up two level
 
     # preload all frames path instead of loading all frames into memory
+    input_config = None
     if input_config_path is not None:
         with open(input_config_path, 'r') as f:
             input_config = json.load(f)
@@ -122,25 +114,10 @@ def blend_frames(blend_results_dir, input_config_path=None):
         bg_rgb = sorted(glob.glob(os.path.join(root_dir, 'images', '*.png')))
         bg_depth = sorted(glob.glob(os.path.join(root_dir, 'depth', '*.npy')))
 
-    # obj_rgb = sorted(glob.glob(os.path.join(blend_results_dir, 'rgb_obj', '*.png')))
-    # obj_depth = sorted(glob.glob(os.path.join(blend_results_dir, 'depth_obj', '*/*.exr'), recursive=True))
-    # shadow_rgb = sorted(glob.glob(os.path.join(blend_results_dir, 'rgb_shadow', '*.png')))
-    # shadow_depth = sorted(glob.glob(os.path.join(blend_results_dir, 'depth_shadow', '*/*.exr'), recursive=True))
-    # all_rgb = sorted(glob.glob(os.path.join(blend_results_dir, 'rgb_all', '*.png')))
-    # all_depth = sorted(glob.glob(os.path.join(blend_results_dir, 'depth_all', '*/*.exr'), recursive=True))
+    assert input_config is not None, 'input_config is required for blending frames'
+    blender_cache_dir = os.path.join(input_config['blender_cache_dir'], input_config['output_dir_name'])
 
-    # if has_3dgs:
-    #     obj_3dgs_rgb = sorted(glob.glob(os.path.join(blend_results_dir, 'rgb_obj_3dgs', '*.png')))
-    #     obj_3dgs_depth = sorted(glob.glob(os.path.join(blend_results_dir, 'depth_obj_3dgs', '*/*.exr'), recursive=True))
-
-    # if has_smoke:
-    #     smoke_fire_rgb = sorted(glob.glob(os.path.join(blend_results_dir, 'rgb_smoke_fire', '*.png')))
-    #     smoke_fire_depth = sorted(glob.glob(os.path.join(blend_results_dir, 'depth_smoke_fire', '*/*.exr'), recursive=True))
-    #     if has_fire:
-    #         smoke_fire_rgb_pre = sorted(glob.glob(os.path.join(blend_results_dir, 'rgb_smoke_fire_pre', '*.png')))
-    #         smoke_fire_depth_pre = sorted(glob.glob(os.path.join(blend_results_dir, 'depth_smoke_fire_pre', '*/*.exr'), recursive=True))
-
-    rgb_all_img_path = glob.glob(os.path.join(blend_results_dir, 'rgb_all', '*.png'))  # this would still output a video even if Blender crashes
+    rgb_all_img_path = glob.glob(os.path.join(blender_cache_dir, 'rgb_all', '*.png'))  # use this to ensure an output video even if Blender crashes
     n_frame = len(rgb_all_img_path)
 
     # n_frame = len(bg_rgb)
@@ -183,19 +160,19 @@ def blend_frames(blend_results_dir, input_config_path=None):
     for i in tqdm(range(n_frame)):
 
         # Get the paths for each frame
-        obj_rgb_path = os.path.join(blend_results_dir, 'rgb_obj', '{:0>3d}.png'.format(i+1))
-        obj_depth_path = os.path.join(blend_results_dir, 'depth_obj', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
-        shadow_rgb_path = os.path.join(blend_results_dir, 'rgb_shadow', '{:0>3d}.png'.format(i+1))
-        shadow_depth_path = os.path.join(blend_results_dir, 'depth_shadow', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
-        all_rgb_path = os.path.join(blend_results_dir, 'rgb_all', '{:0>3d}.png'.format(i+1))
-        all_depth_path = os.path.join(blend_results_dir, 'depth_all', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
+        obj_rgb_path = os.path.join(blender_cache_dir, 'rgb_obj', '{:0>3d}.png'.format(i+1))
+        obj_depth_path = os.path.join(blender_cache_dir, 'depth_obj', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
+        shadow_rgb_path = os.path.join(blender_cache_dir, 'rgb_shadow', '{:0>3d}.png'.format(i+1))
+        shadow_depth_path = os.path.join(blender_cache_dir, 'depth_shadow', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
+        all_rgb_path = os.path.join(blender_cache_dir, 'rgb_all', '{:0>3d}.png'.format(i+1))
+        all_depth_path = os.path.join(blender_cache_dir, 'depth_all', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
 
-        obj_3dgs_rgb_path = os.path.join(blend_results_dir, 'rgb_obj_3dgs', '{:0>3d}.png'.format(i+1))
-        obj_3dgs_depth_path = os.path.join(blend_results_dir, 'depth_obj_3dgs', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
-        smoke_fire_rgb_path = os.path.join(blend_results_dir, 'rgb_smoke_fire', '{:0>3d}.png'.format(i+1))
-        smoke_fire_depth_path = os.path.join(blend_results_dir, 'depth_smoke_fire', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
-        smoke_fire_rgb_pre_path = os.path.join(blend_results_dir, 'rgb_smoke_fire_pre', '{:0>3d}.png'.format(i+1))
-        smoke_fire_depth_pre_path = os.path.join(blend_results_dir, 'depth_smoke_fire_pre', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
+        obj_3dgs_rgb_path = os.path.join(blender_cache_dir, 'rgb_obj_3dgs', '{:0>3d}.png'.format(i+1))
+        obj_3dgs_depth_path = os.path.join(blender_cache_dir, 'depth_obj_3dgs', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
+        smoke_fire_rgb_path = os.path.join(blender_cache_dir, 'rgb_smoke_fire', '{:0>3d}.png'.format(i+1))
+        smoke_fire_depth_path = os.path.join(blender_cache_dir, 'depth_smoke_fire', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
+        smoke_fire_rgb_pre_path = os.path.join(blender_cache_dir, 'rgb_smoke_fire_pre', '{:0>3d}.png'.format(i+1))
+        smoke_fire_depth_pre_path = os.path.join(blender_cache_dir, 'depth_smoke_fire_pre', '{:0>3d}'.format(i+1), 'Image{:0>4d}.exr'.format(i+1))
 
 
         bg_c = load_rgb(bg_rgb[i])                    # bg_c: background image

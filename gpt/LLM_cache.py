@@ -12,7 +12,7 @@ class DiskCache:
     A convenient disk cache that stores key-value pairs on disk.
     Useful for querying LLM API.
     """
-    def __init__(self, cache_dir='cache', load_cache=True):
+    def __init__(self, cache_dir='_cache/llm_cache', load_cache=True):
         self.cache_dir = cache_dir
         self.data = {}
         

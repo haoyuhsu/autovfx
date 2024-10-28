@@ -214,17 +214,19 @@ def retrieve_asset(scene_representation, object_name, is_animated=False):
     new_obj['object_path'] = obj_info['object_path']
     new_obj['from_3DGS'] = False
 
+    multi_view_render_dir = os.path.join(scene_representation.cache_dir, 'assets_rendering_multi_views')
+
     # Quick rendering of the object
     os.system('{} --background --python ./blender/asset_rendering.py -- --object_file={} --output_dir={} --num_images={}'.format( \
         BLENDER_PATH, \
         obj_info['object_path'], \
-        os.path.join(ROOT_DIR, 'blender/images'), \
+        multi_view_render_dir, \
         4
     ))
 
     # Estimate forward axis of the object by GPT-4V API (only used for animated object)
     forward_axis = 'TRACK_NEGATIVE_Y'  # default forward axis
-    img_folder = os.path.join(ROOT_DIR, 'blender/images', obj_info['object_id'])
+    img_folder = os.path.join(multi_view_render_dir, obj_info['object_id'])
     if is_animated:
         forward_axis = estimate_object_forward_axis(img_folder, object_name)
         print("Estimated forward axis of {} is {}.".format(object_name, forward_axis))
@@ -527,6 +529,9 @@ def add_event(scene_representation, obj, event_type, start_frame=None, end_frame
     #         insert_object(scene_representation, obj)
 
 
+#############################################################################
+#  Additional functions used for autonomous driving scene editing (ChatSim) #
+#############################################################################
 def get_vehicle_position(scene_representation):
     '''
     Get vehicle position. (since the pose is converted into vehicle coordinate system, the z-value is always 0.0)
@@ -560,28 +565,28 @@ def retrieve_chatsim_asset(scene_representation, object_name):
     Retrieve 3D asset by object name from chatsim assetbank.
     '''
     assetbank_dict = {
-        'Audi_Q3_2023': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Audi_Q3_2023.blend'),
-        'Benz_G': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Benz_G.blend'),
-        'Benz_S': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Benz_S.blend'),
-        'BMW_mini': os.path.join(ROOT_DIR, 'blender_assets_chatsim/BMW_mini.blend'),
-        'Cadillac_CT6': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Cadillac_CT6.blend'),
-        'Chevrolet': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Chevrolet.blend'),
-        'Dodge_SRT_Hellcat': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Dodge_SRT_Hellcat.blend'),
-        'Ferriari_f150': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Ferriari_f150.blend'),
-        'Lamborghini': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Lamborghini.blend'),
-        'Land_Rover_range_rover': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Land_Rover_range_rover.blend'),
-        'M1A2_tank': os.path.join(ROOT_DIR, 'blender_assets_chatsim/M1A2_tank.blend'),
-        'Police_car': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Police_car.blend'),
-        'Porsche-911-4s-final': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Porsche-911-4s-final.blend'),
-        'Tesla_cybertruck': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Tesla_cybertruck.blend'),
-        'Tesla_roadster': os.path.join(ROOT_DIR, 'blender_assets_chatsim/Tesla_roadster.blend'),
-        'Bulldozer': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Bulldozer.blend'),
-        'Cement_isolation_pier': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Cement_isolation_pier.blend'),
-        'Excavator': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Excavator.blend'),
-        'Loader_truck': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Loader_truck.blend'),
-        'Red_iron_oil_drum': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Red_iron_oil_drum.blend'),
-        'Sign_fence': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Sign_fence.blend'),
-        'Traffic_cone': os.path.join(ROOT_DIR, 'blender_assets_chatsim/obstacles/Traffic_cone.blend'),
+        'Audi_Q3_2023': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Audi_Q3_2023.blend'),
+        'Benz_G': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Benz_G.blend'),
+        'Benz_S': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Benz_S.blend'),
+        'BMW_mini': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/BMW_mini.blend'),
+        'Cadillac_CT6': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Cadillac_CT6.blend'),
+        'Chevrolet': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Chevrolet.blend'),
+        'Dodge_SRT_Hellcat': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Dodge_SRT_Hellcat.blend'),
+        'Ferriari_f150': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Ferriari_f150.blend'),
+        'Lamborghini': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Lamborghini.blend'),
+        'Land_Rover_range_rover': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Land_Rover_range_rover.blend'),
+        'M1A2_tank': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/M1A2_tank.blend'),
+        'Police_car': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Police_car.blend'),
+        'Porsche-911-4s-final': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Porsche-911-4s-final.blend'),
+        'Tesla_cybertruck': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Tesla_cybertruck.blend'),
+        'Tesla_roadster': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/Tesla_roadster.blend'),
+        'Bulldozer': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Bulldozer.blend'),
+        'Cement_isolation_pier': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Cement_isolation_pier.blend'),
+        'Excavator': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Excavator.blend'),
+        'Loader_truck': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Loader_truck.blend'),
+        'Red_iron_oil_drum': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Red_iron_oil_drum.blend'),
+        'Sign_fence': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Sign_fence.blend'),
+        'Traffic_cone': os.path.join(scene_representation.cache_dir, 'blender_assets_chatsim/obstacles/Traffic_cone.blend'),
     }
     assert object_name in assetbank_dict.keys()
 
@@ -594,6 +599,8 @@ def retrieve_chatsim_asset(scene_representation, object_name):
     new_obj['scale'] = 1.0
 
     return new_obj
+
+#############################################################################
 
 
 if __name__ == '__main__':

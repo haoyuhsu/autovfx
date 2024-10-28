@@ -152,6 +152,7 @@ lighting/diffusionlight/inpaint_output
 lighting/text2light/text2light_released_model
 datasets/
 cache/
+_cache/
 assets/
 assets_rendering/
 blender_assets_chatsim/
