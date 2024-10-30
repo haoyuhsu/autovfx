@@ -46,6 +46,8 @@ import copy
 from inpaint.retrain_utils import compute_lpips_loss, init_lpips_model, is_large_mask
 from sugar.gaussian_splatting.utils.loss_utils import ssim
 
+import open3d as o3d
+import trimesh
 
 CONSOLE = Console(width=120)
 
@@ -88,6 +90,12 @@ class SceneRepresentation():
 
         self.blender_cfg = {}
         self.rb_transform_info = None
+        self.blender_cache_dir = os.path.join(
+            self.cache_dir, 
+            'blender_rendering', 
+            self.dataset_dir.rstrip('/').split('/')[-1],  # scene name
+            self.custom_traj_name
+        )
 
         bg_color = [1,1,1] if self.hparams.white_background else [0, 0, 0]
         self.background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -220,10 +228,14 @@ class SceneRepresentation():
         self.gaussians = gaussians
 
 
-    def render_scene(self, skip_render_3DGS=True):
+    def render_scene(self, skip_render_3DGS=False):
         self.render_from_blender()
-        if not skip_render_3DGS or self.rb_transform_info is not None:
-            self.render_from_3DGS()
+        if (
+            not skip_render_3DGS or
+            self.rb_transform_info is not None or
+            os.path.exists(os.path.join(self.blender_output_dir, 'melting_meshes'))
+        ):
+            self.render_from_3DGS(post_rendering=True)
         blend_all.blend_frames(self.blender_output_dir, self.cfg_path)
 
 
@@ -235,7 +247,7 @@ class SceneRepresentation():
     def set_basic_blender_cfg(self):
         new_cfg = {}
         new_cfg['edit_text'] = self.hparams.edit_text
-        new_cfg['blender_cache_dir'] = os.path.join(self.cache_dir, 'blender_rendering', self.dataset_dir.rstrip('/').split('/')[-1], self.custom_traj_name)
+        new_cfg['blender_cache_dir'] = self.blender_cache_dir
         new_cfg['im_width'], new_cfg['im_height'] = self.cameras['img_wh']
         new_cfg['K'] = self.cameras['K'].tolist()
         new_cfg['c2w'] = self.cameras['c2w'].tolist()
@@ -329,11 +341,16 @@ class SceneRepresentation():
         return dir_vector
 
 
-    def render_from_3DGS(self, render_video=False):
+    def render_from_3DGS(self, render_video=False, post_rendering=False):
 
         self.load_scene()  # reload the scene to get the latest gaussians
 
         camera_views = self.cameras['cameras']  # a list of Camera objects
+
+        if post_rendering and self.hparams.render_type == 'SINGLE_VIEW':
+            camera_views = [copy.deepcopy(self.cameras['cameras'][self.anchor_frame_idx]) for _ in range(self.total_frames)]
+            for cam_idx, view in enumerate(camera_views):
+                camera_views[cam_idx].image_name = '{0:05d}'.format(cam_idx)
 
         render_path = os.path.join(self.traj_results_dir, "images")
         os.makedirs(render_path, exist_ok=True)
@@ -341,9 +358,6 @@ class SceneRepresentation():
         os.makedirs(depth_path, exist_ok=True)
         normal_path = os.path.join(self.traj_results_dir, "normal")
         os.makedirs(normal_path, exist_ok=True)
-
-        # pseudo_normal_path = os.path.join(self.traj_results_dir, "pseudo_normal")
-        # os.makedirs(pseudo_normal_path, exist_ok=True)
 
         with torch.no_grad():
             for idx, view in tqdm(enumerate(camera_views), desc="Rendering progress"):
@@ -362,6 +376,56 @@ class SceneRepresentation():
                         object_gaussians = load_gaussians(obj_gaussians_path, self.hparams.max_sh_degree - 1)
                         transformed_gaussians = transform_gaussians(object_gaussians, center, rotation, scaling, initial_center)
                         all_gaussians = merge_two_gaussians(all_gaussians, transformed_gaussians)
+                elif os.path.exists(os.path.join(self.blender_cache_dir, self.hparams.blender_output_dir_name, 'melting_meshes')):
+                    all_gaussians = copy.deepcopy(self.gaussians)
+                    mesh_output_dir = os.path.join(self.blender_cache_dir, self.hparams.blender_output_dir_name, 'melting_meshes')
+                    for obj_id in sorted(os.listdir(mesh_output_dir)):
+                        melting_mesh_dir = os.path.join(mesh_output_dir, obj_id)
+                        obj_info = [
+                            obj for obj in self.blender_cfg['insert_object_info']
+                            if obj['object_id'] == obj_id
+                        ][0]
+                        orig_mesh_path = obj_info['object_path']
+                        orig_gaussians_path = os.path.join('/'.join(orig_mesh_path.split('/')[:-2]), 'object_gaussians.ply')
+                        orig_mesh = trimesh.load_mesh(orig_mesh_path)
+                        orig_gaussians = load_gaussians(orig_gaussians_path, self.hparams.max_sh_degree - 1)
+                        # associate closest triangle in the original mesh to each Gaussian center
+                        orig_mesh_o3d = o3d.t.geometry.RaycastingScene()
+                        orig_mesh_o3d.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(orig_mesh.as_open3d))
+                        gaussians_xyz = orig_gaussians._xyz.detach().cpu().numpy()
+                        ret_dict = orig_mesh_o3d.compute_closest_points(
+                            o3d.core.Tensor.from_numpy(gaussians_xyz.astype(np.float32))
+                        )
+                        triangle_ids_from_gaussians = ret_dict['primitive_ids'].cpu().numpy()
+                        # iterate over the melting meshes
+                        melting_mesh_paths = [
+                            os.path.join(melting_mesh_dir, '{0:03d}_obj.stl'.format(idx + 1)),
+                            os.path.join(melting_mesh_dir, '{0:03d}_obj_dup.stl'.format(idx + 1))
+                        ]
+                        for melting_mesh_path in melting_mesh_paths:
+                            if not os.path.exists(melting_mesh_path):
+                                continue
+                            melting_mesh = trimesh.load_mesh(melting_mesh_path)  # meet ValueError: PLY is unexpected length!
+                            # melting_mesh = o3d.io.read_triangle_mesh(melting_mesh_path)
+                            # associate closest triangle in the original mesh to each vertex in the melting mesh
+                            ret_dict = orig_mesh_o3d.compute_closest_points(
+                                o3d.core.Tensor.from_numpy(np.array(melting_mesh.triangles_center).astype(np.float32))
+                            )
+                            # ret_dict = orig_mesh_o3d.compute_closest_points(
+                            #     o3d.core.Tensor.from_numpy(np.array(melting_mesh.vertices).astype(np.float32))
+                            # )
+                            triangle_ids_from_melting = ret_dict['primitive_ids'].cpu().numpy()
+                            # keep the Gaussians sharing the same closest triangle with the melting mesh
+                            matching_gaussians_mask = np.isin(triangle_ids_from_gaussians, triangle_ids_from_melting)
+                            # create new Gaussians and merge the new Gaussians with the existing ones
+                            new_gaussians = copy.deepcopy(orig_gaussians)
+                            new_gaussians._xyz = orig_gaussians._xyz[matching_gaussians_mask]
+                            new_gaussians._features_dc = orig_gaussians._features_dc[matching_gaussians_mask]
+                            new_gaussians._features_rest = orig_gaussians._features_rest[matching_gaussians_mask]
+                            new_gaussians._scaling = orig_gaussians._scaling[matching_gaussians_mask]
+                            new_gaussians._rotation = orig_gaussians._rotation[matching_gaussians_mask]
+                            new_gaussians._opacity = orig_gaussians._opacity[matching_gaussians_mask]
+                            all_gaussians = merge_two_gaussians(all_gaussians, new_gaussians)
                 else:
                     all_gaussians = self.gaussians
                 result = render(view, all_gaussians, self.pipe, self.background)
@@ -380,12 +444,6 @@ class SceneRepresentation():
                 normal = (normal * 255).astype(np.uint8)
                 cv2.imwrite(os.path.join(normal_path, view.image_name + ".png"), cv2.cvtColor(normal, cv2.COLOR_RGB2BGR))
 
-                # # pseudo normal map
-                # pseudo_normal = result["pseudo_normal"].cpu().numpy()
-                # pseudo_normal = (pseudo_normal + 1) / 2
-                # pseudo_normal = (pseudo_normal * 255).astype(np.uint8)
-                # cv2.imwrite(os.path.join(pseudo_normal_path, view.image_name + ".png"), cv2.cvtColor(pseudo_normal, cv2.COLOR_RGB2BGR))
-
         # generate video from frames
         if render_video:
             rgb_frames_path = sorted(glob.glob(os.path.join(render_path, '*.png')))
@@ -394,9 +452,6 @@ class SceneRepresentation():
             generate_video_from_frames(depth_frames_path, os.path.join(self.traj_results_dir, 'render_depth.mp4'), fps=15)
             normal_frames_path = sorted(glob.glob(os.path.join(normal_path, '*.png')))
             generate_video_from_frames(normal_frames_path, os.path.join(self.traj_results_dir, 'render_normal.mp4'), fps=15)
-
-            # pseudo_normal_frames_path = sorted(glob.glob(os.path.join(pseudo_normal_path, '*.png')))
-            # generate_video_from_frames(pseudo_normal_frames_path, os.path.join(self.traj_results_dir, 'render_pseudo_normal.mp4'), fps=15)
 
 
     # def estimate_scene_scale(self):
@@ -598,6 +653,11 @@ if __name__ == '__main__':
     scene_representation = SceneRepresentation(hparams)
 
     ##### Test rendering from Blender #####
+    # scene_representation.render_scene()
+
+    # with open(scene_representation.cfg_path, 'r') as f:
+    #     scene_representation.blender_cfg = json.load(f)
+    #     scene_representation.rb_transform_info = scene_representation.blender_cfg['rb_transform']
     # scene_representation.render_scene()
 
     ##### Test rendering from 3DGS #####

@@ -1,7 +1,7 @@
 # Remember to import functions from edit_utils.py as needed.
 from edit_utils import detect_object, sample_point_on_object, sample_point_above_object, retrieve_asset, \
     insert_object, remove_object, update_object, allow_physics, add_fire, add_smoke, set_static_animation, set_moving_animation \
-    init_material, retrieve_material, apply_material, allow_fracture, make_break, incinerate \
+    init_material, retrieve_material, apply_material, allow_fracture, make_break, make_melting \
     get_object_center_position, get_object_bottom_position, translate_object, rotate_object, scale_object, get_random_2D_rotation, get_random_3D_rotation, make_copy \
     add_event, get_camera_position
 
@@ -10,13 +10,18 @@ from edit_utils import detect_object, sample_point_on_object, sample_point_above
 # Default position for detected objects from the scene may not be (0, 0, 0) and rotation is identity matrix.
 # translate_object takes in relative offset as input, not an absolute position.
 # rotate_object takes in 3x3 rotation matrix as input.
-# allow_fracture breaks the object into pieces when it collides with other objects. make_break breaks the object into pieces immediately. incinerate turns the object into ashes immediately.
+# allow_fracture breaks the object into pieces when it collides with other objects. make_break breaks the object into pieces immediately. make_melting turns the object into liquid immediately.
 
 # To control effects of the object at specific time, use add_event function.
 # add_event(scene, object, event_type, start_frame, end_frame)
 # event_type: 'static', 'animation', 'physics', 'fire', 'smoke', 'break', 'incinerate'
 # start_frame: default is 1 for 'static', 'animation', 'physics', 'fire', 'smoke', and half of total frames for 'break' and 'incinerate'
 # end_frame: default is the total frames + 1 for 'static', 'animation', 'physics', 'fire', 'smoke', and not applicable for 'break' and 'incinerate'
+
+# Query: Melt down the plastic bottle into liquid.
+plastic_bottle = detect_object(scene, 'plastic bottle')
+plastic_bottle = make_melting(plastic_bottle)
+update_object(scene, plastic_bottle)
 
 # Query: Insert an apple and make it break into pieces in the middle of the video.
 apple = retrieve_asset(scene, 'apple')

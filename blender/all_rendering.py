@@ -1460,6 +1460,7 @@ def fire_modifier_infinigen(node_tree):
 # def fire_modifier_youtube(node_tree):
 #     """
 #     Add fire modifier to the node tree (references: https://www.youtube.com/watch?v=zyIJQHlFQs0)
+#     Note: the quality is not as good as the fire_modifier_infinigen
 #     """
 #     # Create nodes
 #     mat_volume_node = node_tree.nodes['Principled Volume']
@@ -1643,6 +1644,180 @@ def compute_area(obj):
 
 
 #########################################################
+# Fluid simulation (a.k.a. melting effect)
+#########################################################
+def create_melting_effect(obj_mesh, scene_mesh=None, melting_start_frame=1, melting_end_frame=100, resolution=128, cache_dir=None):
+    """
+    Create a melting effect for the object (inspired by this YouTube tutorial: https://www.youtube.com/watch?v=Q42g1fsOHQY&list=LL&index=6)
+    """
+    # prepare parameters
+    mean_color = compute_average_color_per_vertex(obj_mesh)
+    bbox_min, bbox_max = scene_bbox(obj_mesh)
+    max_scale = max(bbox_max - bbox_min)
+    obj_center = (bbox_max + bbox_min) / 2
+
+    ### Part 1: insert a cover object (a sphere) and setup its movement ###
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.mesh.primitive_uv_sphere_add()
+    cover_obj = bpy.context.object
+    cover_obj.select_set(True)
+    cover_obj.location = obj_center
+    cover_obj.scale = [max_scale / 2 * 1.3] * 3    # sphere size to be slightly larger than the object
+    bpy.ops.object.shade_smooth()
+    bpy.ops.object.modifier_add(type='SUBSURF')
+    cover_obj.modifiers["Subdivision"].render_levels = 2   # adjust from 2 to 1 to avoid black spots
+    bpy.ops.object.modifier_add(type='DISPLACE')
+    cover_obj.modifiers["Displace"].texture = bpy.data.textures.new(name="Cloud", type='CLOUDS')
+    cover_obj.modifiers["Displace"].strength = 0.45
+    bpy.ops.object.modifier_add(type='SUBSURF')
+    cover_obj.modifiers["Subdivision"].render_levels = 2
+    bpy.ops.object.shade_smooth()
+    bpy.context.view_layer.update()
+
+    cover_obj.keyframe_insert(data_path="location", frame=melting_start_frame)
+    cover_obj.location = obj_center + Vector([0, 0, max_scale * 1.3 + 0.1])    # moving upward until it totally above the object
+    cover_obj.keyframe_insert(data_path="location", frame=melting_end_frame)
+    bpy.context.view_layer.update()
+
+    ### Part 2: duplicate the objects and apply boolean modifiers for transition effect ###
+    bpy.ops.object.select_all(action="DESELECT")
+    obj_mesh.select_set(True)
+    bpy.context.view_layer.objects.active = obj_mesh
+    # bpy.ops.object.modifier_add(type='SUBSURF')
+    # cover_obj.modifiers["Subdivision"].render_levels = 2   # apply subdivision modifier to avoid black spots (https://blenderartists.org/t/black-spots-on-fluid/600414) --> but mess up the 3D Gaussians rendering part
+    bpy.ops.object.modifier_add(type='BOOLEAN')
+    obj_mesh.modifiers["Boolean"].operation = 'INTERSECT'
+    obj_mesh.modifiers["Boolean"].object = cover_obj
+
+    # duplicate both the original object and the cover object
+    bpy.ops.object.select_all(action="DESELECT")
+    obj_mesh.select_set(True)
+    bpy.context.view_layer.objects.active = obj_mesh
+    bpy.ops.object.duplicate()
+    obj_mesh_dup = bpy.context.object
+    obj_mesh_dup.name = obj_mesh.name + "_dup"
+    bpy.ops.object.select_all(action="DESELECT")
+    cover_obj.select_set(True)
+    bpy.context.view_layer.objects.active = cover_obj
+    bpy.ops.object.duplicate()
+    cover_obj_dup = bpy.context.object
+    cover_obj_dup.name = cover_obj.name + "_dup"
+
+    # add additional boolean modifier to the obj_mesh_dup and set the cover_obj_dup as difference object
+    bpy.ops.object.select_all(action="DESELECT")
+    obj_mesh_dup.select_set(True)
+    bpy.context.view_layer.objects.active = obj_mesh_dup
+    bpy.ops.object.modifier_add(type='BOOLEAN')
+    obj_mesh_dup.modifiers["Boolean.001"].operation = 'DIFFERENCE'
+    obj_mesh_dup.modifiers["Boolean.001"].object = cover_obj_dup
+
+    # add -0.05 to delta z-transform to the cover_obj_dup to make it slightly below the original object
+    cover_obj_dup.delta_location[2] = -0.05
+
+    # for the inserted_obj_dup, change first boolean to DIFFERENCE and second boolean to INTERSECT
+    obj_mesh_dup.modifiers["Boolean"].operation = 'DIFFERENCE'
+    obj_mesh_dup.modifiers["Boolean.001"].operation = 'INTERSECT'
+    bpy.context.view_layer.update()
+
+    # ensure the sphere proxy is not rendered
+    cover_obj.hide_render = True
+    cover_obj_dup.hide_render = True
+
+    ### Part 3: create fluid domain and setup the fluid simulation ###
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.mesh.primitive_cube_add()
+    fluid_domain = bpy.context.object
+    fluid_domain.name = obj_mesh.name + "_fluid_domain"
+    fluid_domain.select_set(True)
+
+    x_scale, y_scale, z_scale = 3, 3, 1.5
+    fluid_domain.scale = [0.5, 0.5, (bbox_max[2] - bbox_min[2])/2 * z_scale]
+    obj_bottom_center = np.array([obj_center[0], obj_center[1], bbox_min[2]])
+    if scene_mesh is not None:
+        z_drop_offset = -0.05   # ensure fluid interaction with the scene_mesh
+    else:
+        z_drop_offset = 0
+    fluid_domain.location = obj_bottom_center + np.array([0, 0, (bbox_max[2] - bbox_min[2])/2 * z_scale + z_drop_offset])
+
+    # setup fluid domain settings
+    bpy.ops.object.modifier_add(type='FLUID')
+    fluid_domain.modifiers["Fluid"].fluid_type = 'DOMAIN'
+    fluid_domain.modifiers["Fluid"].domain_settings.domain_type = 'LIQUID'
+    fluid_domain.modifiers["Fluid"].domain_settings.resolution_max = resolution
+    fluid_domain.modifiers["Fluid"].domain_settings.time_scale = 0.4             # for slower liquid movement
+    fluid_domain.modifiers["Fluid"].domain_settings.timesteps_max = 10           # more timesteps for simulation stability (TODO: maybe the timesteps too high?)
+    fluid_domain.modifiers["Fluid"].domain_settings.timesteps_min = 5
+    fluid_domain.modifiers["Fluid"].domain_settings.particle_randomness = 1
+    fluid_domain.modifiers["Fluid"].domain_settings.use_diffusion = True         # set viscosity to 2e-3
+    fluid_domain.modifiers["Fluid"].domain_settings.viscosity_exponent = 3
+    fluid_domain.modifiers["Fluid"].domain_settings.viscosity_base = 2
+    fluid_domain.modifiers["Fluid"].domain_settings.use_mesh = True              # enable fluid mesh
+    fluid_domain.modifiers["Fluid"].domain_settings.mesh_particle_radius = 1
+    fluid_domain.modifiers["Fluid"].domain_settings.mesh_scale = 2               # TODO: consider tweaking this value
+
+    # setup fluid domain material
+    bpy.ops.object.material_slot_add()
+    fluid_domain.material_slots[0].material = bpy.data.materials.new(name="Fluid")
+    fluid_domain.material_slots[0].material.use_nodes = True
+    fluid_domain.material_slots[0].material.node_tree.nodes.clear()
+    nodes = fluid_domain.material_slots[0].material.node_tree.nodes
+    links = fluid_domain.material_slots[0].material.node_tree.links
+    output_node = nodes.new('ShaderNodeOutputMaterial')
+    principled_node = nodes.new('ShaderNodeBsdfPrincipled')
+    links.new(principled_node.outputs['BSDF'], output_node.inputs['Surface'])
+    principled_node.inputs['Base Color'].default_value = (mean_color[0], mean_color[1], mean_color[2], 1)
+    principled_node.inputs[7].default_value = 0.7          # alias for specular value
+    principled_node.inputs['Metallic'].default_value = 0
+    principled_node.inputs['Roughness'].default_value = 0.2
+    bpy.context.view_layer.update()
+
+    # setup fluid inflow settings
+    bpy.ops.object.select_all(action="DESELECT")
+    obj_mesh_dup.select_set(True)
+    bpy.context.view_layer.objects.active = obj_mesh_dup
+    bpy.ops.object.modifier_add(type='FLUID')
+    obj_mesh_dup.modifiers["Fluid"].fluid_type = 'FLOW'
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.flow_type = 'LIQUID'
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.flow_behavior = 'INFLOW'
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.use_plane_init = True    # set to True if the inflow object is non-closed
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.subframes = 1
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.use_inflow = True
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.keyframe_insert(data_path="use_inflow", frame=melting_end_frame)
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.use_inflow = False
+    obj_mesh_dup.modifiers["Fluid"].flow_settings.keyframe_insert(data_path="use_inflow", frame=melting_end_frame+1)
+    bpy.context.view_layer.update()
+
+    # # (optional) cache setting for baking
+    # fluid_domain.modifiers["Fluid"].domain_settings.cache_frame_start = scene.frame_start
+    # fluid_domain.modifiers["Fluid"].domain_settings.cache_frame_end = scene.frame_end
+    # fluid_domain.modifiers["Fluid"].domain_settings.cache_resumable = True
+    # # fluid_domain.modifiers["Fluid"].domain_settings.cache_type = 'ALL'   # need 'bpy.ops.fluid.bake_all()'
+    # fluid_domain.modifiers["Fluid"].domain_settings.cache_type = 'REPLAY'  # do not need baking (default)
+
+    if scene_mesh is not None:
+        bpy.ops.object.select_all(action="DESELECT")
+        scene_mesh.select_set(True)
+        bpy.context.view_layer.objects.active = scene_mesh
+        bpy.ops.object.modifier_add(type='FLUID')
+        scene_mesh.modifiers["Fluid"].fluid_type = 'EFFECTOR'
+        scene_mesh.modifiers["Fluid"].effector_settings.effector_type = 'COLLISION'
+        scene_mesh.modifiers["Fluid"].effector_settings.subframes = 1
+        scene_mesh.modifiers["Fluid"].effector_settings.surface_distance = 0.001
+        scene_mesh.modifiers["Fluid"].effector_settings.use_effector = True
+        scene_mesh.modifiers["Fluid"].effector_settings.use_plane_init = True
+
+    bpy.ops.object.select_all(action="DESELECT")
+
+    # TODO: verbose 
+    print("========================================================")
+    print("Name of obj_mesh: ", obj_mesh.name)
+    print("Name of obj_mesh_dup: ", obj_mesh_dup.name)
+    print("========================================================")
+
+    return fluid_domain, [obj_mesh, obj_mesh_dup]
+
+
+#########################################################
 # Others (Utility functions)
 #########################################################
 def get_object_matrix_world(obj_path):
@@ -1705,6 +1880,89 @@ def delete_object_recursive(obj):
     bpy.data.objects.remove(obj, do_unlink=True)
 
 
+def get_num_active_vertices(obj):
+    """
+    Useful for tracking active vertices in the object (especially after applying boolean modifier)
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    evaluated_obj = obj.evaluated_get(depsgraph)
+    mesh = evaluated_obj.to_mesh()
+    n_active_vert = len(mesh.vertices)
+    evaluated_obj.to_mesh_clear()
+    return n_active_vert
+
+
+def get_num_active_faces(obj):
+    """
+    Useful for tracking active faces in the object (especially after applying boolean modifier)
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    evaluated_obj = obj.evaluated_get(depsgraph)
+    mesh = evaluated_obj.to_mesh()
+    n_active_faces = len(mesh.polygons)
+    evaluated_obj.to_mesh_clear()
+    return n_active_faces
+
+
+def export_object_mesh(obj, export_path):
+    """
+    Export the object mesh to the given path
+    """
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    if export_path.endswith(".ply"):
+        bpy.ops.export_mesh.ply(
+            filepath=export_path,
+            use_selection=True,
+            use_mesh_modifiers=True,
+            use_normals=True,
+            use_uv_coords=False,
+            use_colors=False
+        )
+    if export_path.endswith(".obj"):
+        bpy.ops.export_scene.obj(
+            filepath=export_path,
+            use_selection=True,
+            use_mesh_modifiers=True,
+            use_normals=False,
+            use_uvs=False,
+            use_materials=False
+        )
+    if export_path.endswith(".stl"):
+        bpy.ops.export_mesh.stl(
+            filepath=export_path,
+            use_selection=True,
+            use_mesh_modifiers=True,
+            ascii=False
+        )
+
+
+def merge_two_objects(obj1, obj2):
+    """
+    Merge two objects into a single object using boolean modifier
+    """
+    bpy.ops.object.select_all(action='DESELECT')
+    obj1.select_set(True)
+    bpy.context.view_layer.objects.active = obj1
+    bpy.ops.object.duplicate()
+    new_obj = bpy.context.view_layer.objects.active
+    bpy.ops.object.modifier_add(type='BOOLEAN')
+    modifier = new_obj.modifiers[-1]
+    modifier.operation = 'UNION'
+    modifier.object = obj2
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    bpy.ops.object.select_all(action='DESELECT')
+    return new_obj
+
+
+def check_obj_info_attribute(obj_info, attribute_name):
+    """
+    Return value if the attribute name exists in the object_info dictionary
+    Otherwise, return False if attribute_name does not exist
+    """    
+    return obj_info[attribute_name] if attribute_name in obj_info.keys() else False
+
+
 #########################################################
 # Event handler
 #########################################################
@@ -1728,7 +1986,7 @@ def event_parser(event):
         'fire': ('start_fire', 'stop_fire', 'remove_fire'),
         'smoke': ('start_smoke', 'stop_smoke', 'remove_smoke'),
         'break': ('start_break', None),
-        'incinerate': ('start_incinerate', None),
+        'incinerate': ('start_incinerate', None),  # TODO: not implemented yet
     }
 
     event_list = []
@@ -1884,6 +2142,11 @@ debris_object_list = []        # store the debris generated from fracture
 
 smoke_proxy_obj_dict = {}      # object_id -> smoke domain for proxy object
 all_3dgs_object_names = []     # list of names of all 3dgs objects (used for custom post-filtering after creating fractures)
+
+fluid_domain_dict = {}             # object_id -> fluid domain
+melting_related_object_dict = {}   # object_id -> fluid related object
+melting_object_list = []           # list of object_id that has melting effect
+fluid_toggle_on_list = []             # list of object_id that has fluid simulation toggle on
 
 # COLLISION_MARGIN = 0.001
 # DOMAIN_HEIGHT = 8.0
@@ -2042,8 +2305,22 @@ def run_blender_render(config_path):
                 object_list.append(object_mesh)
             if obj_info['from_3DGS']:
                 all_3dgs_object_names.append(object_mesh.name)
-        if obj_info['fracture']:
+        if check_obj_info_attribute(obj_info, 'fracture'):
             fracture_object_list.append(object_mesh)
+        if check_obj_info_attribute(obj_info, 'melting'):
+            melting_object_list.append(object_mesh)
+            fluid_domain, melting_related_objects = create_melting_effect(object_mesh, scene_mesh=None, melting_start_frame=1, melting_end_frame=int(scene.frame_end * (2/3)), resolution=256) # TODO: change to 256
+            fluid_domain_dict[obj_info['object_id']] = fluid_domain
+            melting_related_object_dict[obj_info['object_id']] = melting_related_objects
+            if obj_info['from_3DGS'] and obj_info['material'] is None:
+                object_3dgs_list.extend([obj for obj in melting_related_objects if obj not in object_3dgs_list])  # add duplicate one to the list
+            else:
+                object_list.extend([obj for obj in melting_related_objects if obj not in object_list])  # add duplicate one to the list
+        if check_obj_info_attribute(obj_info, 'break'):
+            obj_id = obj_info['object_id']
+            if obj_id not in all_events_dict:
+                all_events_dict[obj_id] = []
+            all_events_dict[obj_id].append((obj_id, 'start_break', scene.frame_end // 2))
         all_object_dict[obj_info['object_id']] = object_mesh
 
     add_rigid_body(scene_mesh, 'PASSIVE', 'MESH', 1.0, 0.5, COLLISION_MARGIN)
@@ -2094,10 +2371,6 @@ def run_blender_render(config_path):
     scene.rigidbody_world.point_cache.frame_start = scene.frame_start
     scene.rigidbody_world.point_cache.frame_end = scene.frame_end
 
-    # DO NOT bake if simulate with particles
-    # if len(smoke_object_info) == 0 and len(fire_object_info) == 0:
-    #     bpy.ops.ptcache.bake_all(bake=True)
-
     cam.initialize_depth_extractor()  # initialize once
 
     rb_transform = {}
@@ -2146,6 +2419,17 @@ def run_blender_render(config_path):
             delete_object_recursive(obj)
             # add the fractured objects to the list
             debris_object_list.extend(fracture_object)
+
+        # check if inflow objects start emitting fluid particles
+        for obj_id, fluid_domain in fluid_domain_dict.items():
+            melting_obj, melting_obj_dup = melting_related_object_dict[obj_id]
+            n_vertices = get_num_active_vertices(melting_obj_dup)
+            if n_vertices > 0:
+                fluid_domain.show_instancer_for_render = True
+                fluid_toggle_on_list.append(obj_id)
+            else:
+                if obj_id not in fluid_toggle_on_list:
+                    fluid_domain.show_instancer_for_render = False  # disable showing emitter with no particles
         
         bpy.context.view_layer.update()     # Ensure the scene is fully updated
 
@@ -2155,9 +2439,13 @@ def run_blender_render(config_path):
         for object_mesh in object_list + debris_object_list:
             set_visible_camera_recursive(object_mesh, True)
         for object_mesh in object_3dgs_list:
+            if object_mesh.name.endswith('_dup'):  # prevent overlap vertices with fluid particles (z-fighting)
+                set_hide_render_recursive(object_mesh, True)
             set_visible_camera_recursive(object_mesh, False)
         for smoke_domain in smoke_domain_dict.values():
             set_hide_render_recursive(smoke_domain, True)
+        for fluid_domain in fluid_domain_dict.values():
+            set_hide_render_recursive(fluid_domain, False)
         scene_mesh.visible_camera = False
         if emitter_mesh is not None:
             emitter_mesh.visible_camera = False
@@ -2172,9 +2460,13 @@ def run_blender_render(config_path):
         for object_mesh in object_list + debris_object_list:
             set_visible_camera_recursive(object_mesh, False)
         for object_mesh in object_3dgs_list:
+            if object_mesh.name.endswith('_dup'):
+                continue
             set_visible_camera_recursive(object_mesh, True)
         for smoke_domain in smoke_domain_dict.values():
             set_hide_render_recursive(smoke_domain, True)
+        for fluid_domain in fluid_domain_dict.values():
+            set_hide_render_recursive(fluid_domain, True)
         scene_mesh.visible_camera = False
         if emitter_mesh is not None:
             emitter_mesh.visible_camera = False
@@ -2196,6 +2488,8 @@ def run_blender_render(config_path):
             set_visible_camera_recursive(object_mesh, False)
         for smoke_domain in smoke_domain_dict.values():
             set_hide_render_recursive(smoke_domain, False)
+        for fluid_domain in fluid_domain_dict.values():
+            set_hide_render_recursive(fluid_domain, True)
         scene_mesh.visible_camera = False
         if emitter_mesh is not None:
             emitter_mesh.visible_camera = False
@@ -2222,6 +2516,8 @@ def run_blender_render(config_path):
             set_hide_render_recursive(object_mesh, True)
         for smoke_domain in smoke_domain_dict.values():
             set_hide_render_recursive(smoke_domain, True)
+        for fluid_domain in fluid_domain_dict.values():
+            set_hide_render_recursive(fluid_domain, True)
         scene_mesh.visible_camera = True
         if emitter_mesh is not None:
             emitter_mesh.visible_camera = True
@@ -2237,10 +2533,15 @@ def run_blender_render(config_path):
             set_hide_render_recursive(object_mesh, False)
             set_visible_camera_recursive(object_mesh, True)
         for object_mesh in object_3dgs_list:
-            set_hide_render_recursive(object_mesh, False)
+            if object_mesh.name.endswith('_dup'):  # prevent overlap vertices with fluid particles (z-fighting)
+                set_hide_render_recursive(object_mesh, True)
+            else:
+                set_hide_render_recursive(object_mesh, False)
             set_visible_camera_recursive(object_mesh, False)
         for smoke_domain in smoke_domain_dict.values():
             set_hide_render_recursive(smoke_domain, False)
+        for fluid_domain in fluid_domain_dict.values():
+            set_hide_render_recursive(fluid_domain, False)
         scene_mesh.visible_camera = True
         if emitter_mesh is not None:
             emitter_mesh.visible_camera = True
@@ -2254,8 +2555,12 @@ def run_blender_render(config_path):
         else:
             cam.render_single_timestep_rgb_and_depth(cam_list[FRAME_INDEX-1], FRAME_INDEX, dir_name_rgb='rgb_all', dir_name_depth='depth_all')
 
-        # Step 6: save the rigid body transformation of 3dgs objects
+        # Step 6: save the rigid body transformation of 3dgs objects (Optional)
         for object_mesh in object_3dgs_list:
+            base_name = object_mesh.name.replace('_dup', '')
+            if base_name in fluid_domain_dict.keys():
+                print("Skip storing rigid body transformation for fluid domain object: ", object_mesh.name)
+                continue
             if object_mesh.name not in rb_transform:
                 rb_transform[object_mesh.name] = {}
             transform = {}
@@ -2264,6 +2569,18 @@ def run_blender_render(config_path):
             transform['rot'] = rot.tolist()
             transform['scale'] = object_3dgs_scale_dict[object_mesh.name]
             rb_transform[object_mesh.name]['{0:03d}'.format(FRAME_INDEX)] = transform
+
+        # Step 7: save the modified meshes during melting animation (Optional)
+        for object_mesh in object_3dgs_list:
+            if object_mesh.name in fluid_domain_dict.keys():  # no need to save again for duplicates
+                melting_meshes_output_dir = os.path.join(output_dir, 'melting_meshes')
+                meshes_output_dir = os.path.join(melting_meshes_output_dir, object_mesh.name)
+                os.makedirs(meshes_output_dir, exist_ok=True)
+                melting_obj, melting_obj_dup = melting_related_object_dict[obj_id]
+                if get_num_active_faces(melting_obj) > 0:
+                    export_object_mesh(melting_obj, os.path.join(meshes_output_dir, '{0:03d}_obj.stl'.format(FRAME_INDEX)))
+                if get_num_active_faces(melting_obj_dup) > 0:
+                    export_object_mesh(melting_obj_dup, os.path.join(meshes_output_dir, '{0:03d}_obj_dup.stl'.format(FRAME_INDEX)))
             
     # add rigid body transformation to the original config file
     if rb_transform:

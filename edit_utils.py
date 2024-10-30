@@ -51,9 +51,10 @@ Wrapper of the modular functions for GPT model to call
 
 ##### Additional functions for time-varying scene editing #####
 - (o) make_break
-- (o) incinerate
+- (NaN) incinerate
 - (o) add_event
 - (o) get_camera_position
+- (o) make_melting
 
 ##### Additional functions for autonomous driving scene editing #####
 - (o) get_vehicle_position
@@ -86,6 +87,7 @@ def get_default_object_info():
         'material': None,
         'fracture': False,
         'break': False,
+        'melting': False,
         'incinerate': False,
     }
 
@@ -487,13 +489,22 @@ def make_break(obj):
     return obj
 
 
-def incinerate(obj):
+def make_melting(obj):
     '''
-    Turn object into ashes.
+    Melt object into liquid.
     '''
-    obj['incinerate'] = True
-    print("Incinerating object: {} {}".format(obj['object_name'], obj['object_id']))
+    obj['melting'] = True
+    print("Melting object: {} {}".format(obj['object_name'], obj['object_id']))
     return obj
+
+
+# def incinerate(obj):
+#     '''
+#     Turn object into ashes.
+#     '''
+#     obj['incinerate'] = True
+#     print("Incinerating object: {} {}".format(obj['object_name'], obj['object_id']))
+#     return obj
 
 
 def get_camera_position(scene_representation):

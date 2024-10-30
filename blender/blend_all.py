@@ -94,28 +94,35 @@ def blend_frames(blend_results_dir, input_config_path=None):
     root_dir = os.path.dirname(os.path.normpath(os.path.dirname(os.path.normpath(blend_results_dir))))  # get up two level
 
     # preload all frames path instead of loading all frames into memory
+    # input_config = None
+    # if input_config_path is not None:
+    #     with open(input_config_path, 'r') as f:
+    #         input_config = json.load(f)
+    #     if 'render_type' in input_config and input_config['render_type'] == 'SINGLE_VIEW':
+    #         anchor_frame_idx = input_config['anchor_frame_idx']
+    #         num_frames = input_config['num_frames']
+    #         anchor_frame_rgb_path = os.path.join(root_dir, 'images', f'{anchor_frame_idx:05}.png')
+    #         anchor_frame_depth_path = os.path.join(root_dir, 'depth', f'{anchor_frame_idx:05}.npy')
+    #         # copy both rgb & depth paths for num_frames times into bg_rgb and bg_depth
+    #         bg_rgb = [anchor_frame_rgb_path] * num_frames
+    #         bg_depth = [anchor_frame_depth_path] * num_frames
+    #     else:
+    #         # default: MULTI_VIEW option
+    #         bg_rgb = sorted(glob.glob(os.path.join(root_dir, 'images', '*.png')))
+    #         bg_depth = sorted(glob.glob(os.path.join(root_dir, 'depth', '*.npy')))
+    # else:
+    #     bg_rgb = sorted(glob.glob(os.path.join(root_dir, 'images', '*.png')))
+    #     bg_depth = sorted(glob.glob(os.path.join(root_dir, 'depth', '*.npy')))
+
     input_config = None
     if input_config_path is not None:
         with open(input_config_path, 'r') as f:
             input_config = json.load(f)
-        if 'render_type' in input_config and input_config['render_type'] == 'SINGLE_VIEW':
-            anchor_frame_idx = input_config['anchor_frame_idx']
-            num_frames = input_config['num_frames']
-            anchor_frame_rgb_path = os.path.join(root_dir, 'images', f'{anchor_frame_idx:05}.png')
-            anchor_frame_depth_path = os.path.join(root_dir, 'depth', f'{anchor_frame_idx:05}.npy')
-            # copy both rgb & depth paths for num_frames times into bg_rgb and bg_depth
-            bg_rgb = [anchor_frame_rgb_path] * num_frames
-            bg_depth = [anchor_frame_depth_path] * num_frames
-        else:
-            # default: MULTI_VIEW option
-            bg_rgb = sorted(glob.glob(os.path.join(root_dir, 'images', '*.png')))
-            bg_depth = sorted(glob.glob(os.path.join(root_dir, 'depth', '*.npy')))
-    else:
-        bg_rgb = sorted(glob.glob(os.path.join(root_dir, 'images', '*.png')))
-        bg_depth = sorted(glob.glob(os.path.join(root_dir, 'depth', '*.npy')))
-
     assert input_config is not None, 'input_config is required for blending frames'
     blender_cache_dir = os.path.join(input_config['blender_cache_dir'], input_config['output_dir_name'])
+
+    bg_rgb = sorted(glob.glob(os.path.join(root_dir, 'images', '*.png')))
+    bg_depth = sorted(glob.glob(os.path.join(root_dir, 'depth', '*.npy')))
 
     rgb_all_img_path = glob.glob(os.path.join(blender_cache_dir, 'rgb_all', '*.png'))  # use this to ensure an output video even if Blender crashes
     n_frame = len(rgb_all_img_path)
@@ -242,22 +249,15 @@ def blend_frames(blend_results_dir, input_config_path=None):
         # New Implementation of blending
         frame = bg_c.copy()
 
+        ############################################################
         ##### Step 1: blend shadow into background image #####
+        ############################################################
         if has_3dgs:
             depth_mask = depth_check(s_d, o_gs_d, option='naive', d_tol=0.1)
             obj_3dgs_alpha = o_gs_c[..., 3] / 255.
             non_obj_3dgs_alpha = 1. - obj_3dgs_alpha
             non_obj_3dgs_alpha[depth_mask] = 1.0
-        
-        # if has_smoke or has_fire:
-        #     obj_alpha = s_f_c[..., 3] / 255.
-        #     depth_mask = depth_check(s_f_d, s_d, option='naive', d_tol=0.1)
-        # else:
-        #     obj_alpha = o_c[..., 3] / 255.
-        #     depth_mask = depth_check(o_d, s_d, option='naive', d_tol=0.1)
             
-        ############################################################
-        # TODO: test fireball effects
         obj_alpha = o_c[..., 3] / 255.
         depth_mask = depth_check(o_d, s_d, option='naive', d_tol=0.1)
 
@@ -266,12 +266,15 @@ def blend_frames(blend_results_dir, input_config_path=None):
             depth_mask_smoke = depth_check(s_f_d, s_d, option='naive', d_tol=0.1)
             obj_alpha = np.maximum(obj_alpha, obj_alpha_smoke)
             depth_mask = np.logical_or(depth_mask, depth_mask_smoke)
-        ############################################################
 
         obj_mask = obj_alpha > 0.0
         mask = np.logical_and(obj_mask, depth_mask)
         obj_alpha[~mask] = 0.0
         non_object_alpha = 1. - obj_alpha
+
+        if has_3dgs:
+            obj_3dgs_front_mask = depth_check(o_gs_d, o_d, option='naive', d_tol=0.1)
+            obj_alpha[obj_3dgs_front_mask] *= non_obj_3dgs_alpha[obj_3dgs_front_mask]
 
         fg_alpha = o_s_c[..., 3] / 255.
         if has_3dgs:
@@ -288,23 +291,8 @@ def blend_frames(blend_results_dir, input_config_path=None):
 
         frame[mask] = frame[mask] * color_diff[mask] * shadow_catcher_alpha[mask, None] + frame[mask] * (1 - shadow_catcher_alpha[mask, None])
 
-        ##### Step 2: blend object and 3DGS object into background image #####
-        # obj_alpha = o_c[..., 3] / 255.
-        # obj_mask = obj_alpha > 0.0
-        # depth_mask = depth_check(o_d, s_d, option='naive', d_tol=0.1)
-
-        # mask = np.logical_and(obj_mask, depth_mask)
-        # if has_fire:
-        #     mask = depth_mask
-        #     frame[:, :, :3][mask] = s_f_c_pre[:, :, :3][mask] + frame[:, :, :3][mask] * (1 - obj_alpha[mask, None])
-        # elif has_smoke:
-        #     mask = depth_mask
-        #     frame[:, :, :3][mask] = s_f_c[:, :, :3][mask] * obj_alpha[mask, None] + frame[:, :, :3][mask] * (1 - obj_alpha[mask, None])
-        # else:
-        #     frame[:, :, :3][mask] = o_c[:, :, :3][mask] * obj_alpha[mask, None] + frame[:, :, :3][mask] * (1 - obj_alpha[mask, None])
-
         ############################################################
-        # TODO: test fireball effects
+        ##### Step 2: blend object and 3DGS object into background image #####
         ############################################################
         frame_tmp = frame.copy()
         mask = np.logical_and(obj_mask, depth_mask)
@@ -312,7 +300,6 @@ def blend_frames(blend_results_dir, input_config_path=None):
         if has_fire:
             mask = depth_mask_smoke
             frame[:, :, :3][mask] = s_f_c_pre[:, :, :3][mask] + frame_tmp[:, :, :3][mask] * (1 - obj_alpha_smoke[mask, None])
-        ############################################################
 
         ############################################################
         # temporary results (original frame, foreground object, foreground object mask, foreground object with shadow, shadow only)
