@@ -18,6 +18,20 @@ from edit_utils import detect_object, sample_point_on_object, sample_point_above
 # start_frame: default is 1 for 'static', 'animation', 'physics', 'fire', 'smoke', and half of total frames for 'break' and 'incinerate'
 # end_frame: default is the total frames + 1 for 'static', 'animation', 'physics', 'fire', 'smoke', and not applicable for 'break' and 'incinerate'
 
+# Query: Generate a cartoon monster with horns and place it on the laptop.
+monster = retrieve_asset(scene, 'a cartoon monster with horns', is_generated=True)
+laptop_obj = detect_object(scene, 'laptop')
+pos = sample_point_on_object(scene, laptop_obj)
+monster = translate_object(monster, pos)
+insert_object(scene, monster)
+
+# Query: Generate a unicorn on the floor.
+unicorn = retrieve_asset(scene, 'unicorn', is_generated=True)
+floor_obj = detect_object(scene, 'floor')
+pos = sample_point_on_object(scene, floor_obj)
+unicorn = translate_object(unicorn, pos)
+insert_object(scene, unicorn)
+
 # Query: Melt down the plastic bottle into liquid.
 plastic_bottle = detect_object(scene, 'plastic bottle')
 plastic_bottle = make_melting(plastic_bottle)

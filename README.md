@@ -167,6 +167,7 @@ gdown --folder https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHEN
 - Text Prompts: *"Drop 5 basketballs on the table."*
 ```bash
 export OPENAI_API_KEY=/your/openai_api_key/
+export MESHY_API_KEY=/your/meshy_api_key/   # if you want to retrieve generated 3D assets
 
 SCENE_NAME=garden_large
 CUSTOM_TRAJ_NAME=transforms_001

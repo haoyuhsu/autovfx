@@ -15,7 +15,7 @@ from sugar.gaussian_splatting.utils.general_utils import safe_state
 from tracking.demo_with_text import run_deva
 from extract.extract_object import extract_object_from_scene, extract_object_from_single_view, get_largest_object, inpaint_object
 from gaussians_utils import get_scaling_of_mesh, get_center_of_mesh_2, get_bottom_center_of_mesh
-from retrieval.wrapper_objaverse import retrieve_asset_from_objaverse
+from retrieval.wrapper_objaverse import retrieve_asset_from_objaverse, retrieve_asset_from_meshy
 from retrieval.wrapper_polyhaven import retrieve_materials_from_polyhaven
 from gpt.gpt4v_utils import estimate_object_scale, estimate_object_forward_axis
 # from blender.asset_rendering import run_object_render as render_object
@@ -205,11 +205,15 @@ def sample_point_above_object(scene_representation, obj, VERTICAL_OFFSET=0.6):
     return selected_location
 
 
-def retrieve_asset(scene_representation, object_name, is_animated=False):
+def retrieve_asset(scene_representation, object_name, is_animated=False, is_generated=False):
     '''
     Retrieve 3D asset by object name from objaverse.  # TODO: retrieve animated asset
     '''
-    obj_info = retrieve_asset_from_objaverse(object_name, is_animated=is_animated)
+    if is_generated:
+        assert not is_animated, "Generated object cannot be animated."
+        obj_info = retrieve_asset_from_meshy(object_name)
+    else:
+        obj_info = retrieve_asset_from_objaverse(object_name, is_animated=is_animated)
     new_obj = get_default_object_info()
     new_obj['object_name'] = object_name
     new_obj['object_id'] = obj_info['object_id']

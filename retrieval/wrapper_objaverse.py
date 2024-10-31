@@ -14,6 +14,7 @@ import json
 from multiprocessing import Pool
 import numpy as np
 from pygltflib import GLTF2
+import requests
 
 
 ALL_OBJS_CLIP_TEXT_EMBEDS_PATH = './retrieval/embeddings/all_data_clip_text_embeddings.pkl'
@@ -222,22 +223,98 @@ def retrieve_asset_from_objaverse(obj_name, is_animated=False, random_pick=True)
     return obj_info
 
 
-# def load_lvis_annotations():
-#     lvis_annotations = objaverse.load_lvis_annotations()
-#     lvis_annotations = {k.lower(): v for k, v in lvis_annotations.items()}
-#     return lvis_annotations
+def retrieve_asset_from_meshy(obj_name):
+    MESHY_API_KEY = os.getenv("MESHY_API_KEY")
+    assert MESHY_API_KEY is not None, "Please set the MESHY_API_KEY environment variable"
 
+    save_dir = './_cache/assets'
 
-# def try_existing_obj_assets(obj_name):
-#     ASSETS_DIR = './assets'
-#     obj_name = obj_name.lower().replace(' ', '_')
-#     obj_path = os.path.join(ASSETS_DIR, obj_name + '.glb')
-#     if os.path.exists(obj_path):
-#         print('Found existing object asset:', obj_name)
-#         return obj_path
-#     else:
-#         print('Object asset not found:', obj_name)
-#         return None
+    # stage 1: generate 3D model preview
+    payload = {
+        "mode": "preview",
+        "prompt": obj_name,
+        "art_style": "pbr",  # 'realistic' or 'pbr'
+        "negative_prompt": "low quality, low resolution, low poly, ugly",
+        "ai_model": "meshy-4"
+    }
+    headers = {
+        "Authorization": f"Bearer {MESHY_API_KEY}"
+    }
+    response_3d_preview = requests.post(
+        "https://api.meshy.ai/v2/text-to-3d",
+        headers=headers,
+        json=payload,
+    )
+    response_3d_preview.raise_for_status()
+    preview_task_id = response_3d_preview.json()["result"]
+
+    while True:
+        headers = {
+            "Authorization": f"Bearer {MESHY_API_KEY}"
+        }
+        response_3d_task_model = requests.get(
+            f"https://api.meshy.ai/v2/text-to-3d/{preview_task_id}",
+            headers=headers,
+        )
+        response_3d_task_model.raise_for_status()
+        model_info = response_3d_task_model.json()
+        if model_info['status'] == 'SUCCEEDED':
+            break
+        else:
+            print("Waiting 30 seconds for 3D preview model to be generated...")
+            time.sleep(30)
+
+    # stage 2: refine 3D model
+    payload = {
+        "mode": "refine",
+        "preview_task_id": preview_task_id,
+    }
+    headers = {
+        "Authorization": f"Bearer {MESHY_API_KEY}"
+    }
+    response_3d_refine = requests.post(
+        "https://api.meshy.ai/v2/text-to-3d",
+        headers=headers,
+        json=payload,
+    )
+    response_3d_refine.raise_for_status()
+    refine_task_id = response_3d_refine.json()["result"]
+
+    # stage 3: get 3D model
+    while True:
+        headers = {
+            "Authorization": f"Bearer {MESHY_API_KEY}"
+        }
+        response_3d_task_model = requests.get(
+            f"https://api.meshy.ai/v2/text-to-3d/{refine_task_id}",
+            headers=headers,
+        )
+        response_3d_task_model.raise_for_status()
+        model_info = response_3d_task_model.json()
+        if model_info['status'] == 'SUCCEEDED':
+            break
+        else:
+            print("Waiting 30 seconds for 3D refine model to be generated...")
+            time.sleep(30)
+
+    object_id = model_info['id']
+    object_path = os.path.join(save_dir, f'{object_id}.glb')
+    model_url = model_info['model_urls']['glb']
+    response = requests.get(model_url, stream=True)
+    if response.status_code == 200:
+        with open(object_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        print("File downloaded successfully.")
+    else:
+        print(f"Failed to download file. Status code: {response.status_code}")
+
+    obj_info = {}
+    obj_info['object_name'] = '_'.join(obj_name.split(' ')).lower()
+    obj_info['object_id'] = object_id
+    obj_info['object_path'] = object_path
+
+    return obj_info
 
 
 if __name__ == '__main__':
