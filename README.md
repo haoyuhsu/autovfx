@@ -212,7 +212,12 @@ python edit_scene.py \
 ## :clapper: Citation
 If you find this paper and repository useful for your research, please consider citing: 
 ```bibtex
-
+@article{hsu2024autovfx,
+    title={AutoVFX: Physically Realistic Video Editing from Natural Language Instructions},
+    author={Hsu, Hao-Yu and Lin, Zhi-Hao and Zhai, Albert and Xia, Hongchi and Wang, Shenlong},
+    journal={arXiv preprint arXiv:2411.02394},
+    year={2024}
+}
 ```
 
 ## :clapper: Acknowledgement
