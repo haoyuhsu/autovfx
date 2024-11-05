@@ -1,20 +1,38 @@
-# autovfx
+# AutoVFX
 
-## TODO items
+AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
+
+### [Project Page](https://haoyuhsu.github.io/autovfx-website/) | [Paper](https://arxiv.org/abs/2411.02394)
+
+[Hao-Yu Hsu<sup>1</sup>](https://haoyuhsu.github.io/), [Zhi-Hao Lin<sup>1</sup>](https://zhihao-lin.github.io/), [Albert J. Zhai<sup>1</sup>](https://ajzhai.github.io/), [Hongchi Xia<sup>1</sup>](https://xiahongchi.github.io/), [Shenlong Wang<sup>1</sup>](https://shenlong.web.illinois.edu/)
+
+<sup>1</sup>University of Illinois at Urbana-Champaign
+
+![teasor](docs/images/teasor.jpg)
+
+## :dart: Progress
 - [x] Environment Setup
 - [x] Pretrained checkpoints, data, and software preparation
-- [x] Simulation example (Garden scene)
+- [x] Simulation example on Garden scene
 - [ ] Details of pose extraction (SfM) and pose alignment
 - [ ] Code for sampling custom camera trajectory
 - [ ] Details of estimating relative scene scale
 - [ ] Details of training 3DGS
 - [ ] Details of surface reconstruction
-- [ ] Details of light estimation (indoor scenes)
+- [ ] Details of light estimation
 - [ ] Details of running simulations on waymo road scenes
 
-## Environment Setup
+## :clapper: Prerequisites
+The code has been tested on:
+- **OS**: Ubuntu 22.04.5 LTS
+- **GPU**: NVIDIA GeForce RTX 4090
+- **Driver Version**: 550
+- **CUDA Version**: 12.4
+- **nvcc**: 11.8
 
-### Step 1: Create environment
+## :clapper: Environment Setup
+
+- Create environment:
 ```bash
 git clone https://github.com/haoyuhsu/autovfx.git
 cd autovfx/
@@ -22,7 +40,7 @@ conda create -n autovfx python=3.10
 conda activate autovfx
 ```
 
-### Step 2: Install PyTorch & cudatoolkit
+- Install PyTorch & cudatoolkit:
 ```bash
 conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.8 -c pytorch -c nvidia
 
@@ -30,14 +48,14 @@ conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
 ```
 
-### Step 3: Install Gaussian Splatting submodules
+- Install Gaussian Splatting submodules:
 ```bash
 cd sugar/gaussian_splatting/
 pip install submodules/diff-gaussian-rasterization
 pip install submodules/simple-knn
 ```
 
-### Step 4: Install segmentation & tracking modules
+- Install segmentation & tracking modules:
 ```bash
 # Tracking-with-DEVA
 cd ../../tracking
@@ -60,26 +78,26 @@ pip install -r ./recognize-anything/requirements.txt
 pip install -e ./recognize-anything/
 ```
 
-### Step 5: Install inpainting modules
+- Install inpainting modules:
 ```bash
 # LaMa
 cd ../../inpaint/lama
 pip install -r requirements.txt
 ```
 
-### Step 6: Install lighting estimation modules
+- Install lighting estimation modules:
 ```bash
 # DiffusionLight
 cd ../../lighting/diffusionlight
 pip install -r requirements.txt
 ```
 
-### Step 7: Install other required packages
+- Install other required packages:
 ```bash
 # Other packages
 pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann open_clip_torch sentence-transformers==2.7.0
 
-# PyTorch3D (try one of the command to see if works)
+# PyTorch3D (try one of the commands)
 pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 conda install pytorch3d -c pytorch3d
@@ -94,12 +112,12 @@ cd ../..
 ```
 
 
-## Dataset Preparation
+## :clapper: Dataset Preparation
 
-Please download the preprocessed dataset on candidate scenes from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing).
+Please download the preprocessed dataset of Garden scenes from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Details on using your own dataset will be updated soon.
 
 
-## Download pretrained checkpoints, required data and Blender
+## :clapper: Download pretrained checkpoints, required data and Blender
 
 ### Tracking modules
 ```bash
@@ -134,7 +152,8 @@ tar -xvf blender-3.6.11-linux-x64.tar.xz
 rm blender-3.6.11-linux-x64.tar.xz
 ```
 
-## Estimate Scene Properties
+## :clapper: Estimate Scene Properties
+Details of estimating scene properties (e.g., geometry, appearance, lighting, and semantics) will be updated soon.
 
 
 ### (Appearance) Training 3DGS
@@ -150,12 +169,12 @@ rm blender-3.6.11-linux-x64.tar.xz
 
 
 
-## Start Simulation
+## :clapper: Start Simulation
 
 ### Example demos from Gardenverse
-Please download the preprocessed Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Also, please download the pretrained 3DGS checkpoints and extracted object instances from [here](https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN?usp=sharing).
+Please download the preprocessed Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Also, please download the pretrained 3DGS checkpoints and extracted object instances from [here](https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN?usp=sharing). All the parameters are listed in the `opt.py`
 
-***Need to update with .zip file for gdown***
+<!-- ***Need to update with .zip file for gdown*** -->
 ```bash
 mkdir datasets && cd datasets
 gdown --folder https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N
@@ -189,3 +208,14 @@ python edit_scene.py \
     --deva_dino_threshold 0.45 \
     --is_uv_mesh
 ```
+
+## :clapper: Citation
+If you find this paper and repository useful for your research, please consider citing: 
+```bibtex
+
+```
+
+## :clapper: Acknowledgement
+This project is supported by the Intel AI SRS gift, Meta research grant, the IBM IIDAI Grant and NSF Awards #2331878, #2340254, #2312102, #2414227, and #2404385. Hao-Yu Hsu is supported by Siebel Scholarship. We greatly appreciate the NCSA for providing computing resources. We thank Derek Hoiem, Sarita Adve, Benjamin Ummenhofer, Kai Yuan, Micheal Paulitsch, Katelyn Gao, Quentin Leboutet for helpful discussions.
+
+Our codebase are built based on [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting), [SuGaR](https://github.com/Anttwo/SuGaR), [SDFStudio](https://github.com/autonomousvision/sdfstudio), [DiffusionLight](https://github.com/DiffusionLight/DiffusionLight), [Tracking-Anything-with-DEVA](https://github.com/hkchengrex/Tracking-Anything-with-DEVA), [Objaverse](https://github.com/allenai/objaverse-xl). Thanks for open-sourcing!.
