@@ -14,13 +14,13 @@ AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
 - [x] Environment Setup
 - [x] Pretrained checkpoints, data, and software preparation
 - [x] Simulation example on Garden scene
-- [ ] Details of pose extraction (SfM) and pose alignment
-- [ ] Code for sampling custom camera trajectory
+- [x] Details of pose extraction (SfM) and pose alignment
+- [x] Details of training 3DGS
+- [x] Details of surface reconstruction
 - [ ] Details of estimating relative scene scale
-- [ ] Details of training 3DGS
-- [ ] Details of surface reconstruction
+- [ ] Code for sampling custom camera trajectory
 - [ ] Details of light estimation
-- [ ] Details of running simulations on waymo road scenes
+- [ ] Demonstrate edits on a single casually-captured video
 
 ## :clapper: Prerequisites
 The code has been tested on:
@@ -44,7 +44,7 @@ conda activate autovfx
 ```bash
 conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.8 -c pytorch -c nvidia
 
-# To build the necessary CUDA extensions, cuda-toolkit is also required. (Optional)
+# (Optional) To build the necessary CUDA extensions, cuda-toolkit is required.
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
 ```
 
@@ -95,26 +95,24 @@ pip install -r requirements.txt
 - Install other required packages:
 ```bash
 # Other packages
-pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann open_clip_torch sentence-transformers==2.7.0
+pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann geffnetopen_clip_torch sentence-transformers==2.7.0 geffnet mmcv
 
 # PyTorch3D (try one of the commands)
 pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 conda install pytorch3d -c pytorch3d
 
-# Trimesh
+# Trimesh with speedup packages
 pip install trimesh==4.3.2
 pip install Rtree==1.2.0
 conda install -c conda-forge embree=2.17.7
 conda install -c conda-forge pyembree
 
+# (Optional) COLMAP if not build from source
+conda install conda-forge::colmap
+
 cd ../..
 ```
-
-
-## :clapper: Dataset Preparation
-
-Please download the preprocessed dataset of Garden scenes from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Details on using your own dataset will be updated soon.
 
 
 ## :clapper: Download pretrained checkpoints, required data and Blender
@@ -133,11 +131,13 @@ rm big-lama.zip
 ```
 
 ### Asset retrieval data
-We use CLIP & SBERT features to annotate assets in Objaverse, and we use SBERT features to annotate PBR materials in PolyHaven. The preprocessed embeddings of both Objaverse 3D assets and PolyHaven PBR materials need to be downloaded. 
+We use [CLIP](https://github.com/mlfoundations/open_clip) & [SBERT](https://sbert.net) features to annotate assets in [Objaverse](https://github.com/allenai/objaverse-xl), and we use SBERT features to annotate PBR materials in [PolyHaven](https://polyhaven.com). The preprocessed embeddings of both Objaverse 3D assets and PolyHaven PBR materials need to be downloaded. 
 
 ```bash
 cd retrieval
+# download processed embeddings
 gdown --folder https://drive.google.com/drive/folders/1Lw87MstzbQgEX0iacTm9GpLYK2UE3gNm
+# download PolyHaven PBR-materials
 gdown https://drive.google.com/uc?id=1adZo_FPyLj7pFofNJfxSbnAv_EaJEV75
 unzip polyhaven.zip && rm polyhaven.zip
 ```
@@ -152,14 +152,132 @@ tar -xvf blender-3.6.11-linux-x64.tar.xz
 rm blender-3.6.11-linux-x64.tar.xz
 ```
 
-## :clapper: Estimate Scene Properties
+## :clapper: Dataset Preparation
+
+Please download the preprocessed dataset of Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing) for quick demo.
+The expected folder structure of the dataset will be:
+```
+├── datasets
+│   | <your scene name>
+│     ├── custom_camera_path   # optional for free-viewpoint rendering
+│         ├── transforms_001.json
+|         ├── ...
+│     ├── images
+|         ├── 00000.png
+|         ├── 00001.png
+|         ├── 00002.png
+|         ├── ...
+│     ├── mesh
+|         ├── material_0.png
+|         ├── mesh.mtl
+|         ├── mesh.obj
+│     ├── emitter_mesh.obj     # optional for indoor scenes
+│     ├── normal
+|         ├── 00000_normal.png
+|         ├── 00001_normal.png
+|         ├── 00002_normal.png
+|         ├── ...
+|     ├── sparse
+|         | 0
+|           ├── cameras.bin
+|           ├── images.bin
+|           ├── points3D.bin
+|     ├── transforms.json
+```
+### Custom dataest
+For your custom dataset, please follow these steps:
+- Create a folder and put your images under `images`. The folder will be like this:
+```
+├── datasets
+│   | <your scene name>
+│     ├── images
+|         ├── 00000.png
+|         ├── 00001.png
+|         ├── 00002.png
+|         ├── ...
+```
+- Estimate normal maps for the usage of both pose alignment and normal regularization during 3DGS and BakedSDF training. Currently, we support three types of methods for monocular normal estimation, which are [Metric3D](https://github.com/YvanYin/Metric3D), [DSINE](https://github.com/baegwangbin/DSINE). and [Omnidata](https://github.com/EPFL-VILAB/omnidata). Empirically, the quality of normal estimation is ranked as Metric3D > DSINE > Omnidata.
+```bash
+python dataset_utils/get_mono_normal.py \
+    --dataset_dir ./datasets/<your scene name> \
+    --method metric3d     # 'metric3d', 'dsine', 'omnidata'
+```
+- Perform pose extraction using COLMAP, followed by pose alignment to set the up direction of the scene to `(0,0,1)`. Specify a text prompt for the most obvious flat surfaces in the scene, such as `ground`, `floor` or `table`.
+```bash
+python dataset_utils/colmap_runner.py \
+    --dataset_dir ./datasets/<your scene name> \
+    --text_prompt ground
+```
+- For details on surface mesh extraction, please refer to the ***Estimate Scene Properties*** section.
+- All cameras are in camera-to-world coordinate with OpenCV format (x: right, y: down, z: front). Please refer to [this tutorial](https://github.com/google-research/multinerf?tab=readme-ov-file#making-your-own-loader-by-implementing-_load_renderings) on conversion between OpenCV and OpenGL camera format.
+
+## :clapper:  Estimate Scene Properties
 Details of estimating scene properties (e.g., geometry, appearance, lighting, and semantics) will be updated soon.
 
+### Surface mesh extraction
+We use [BakedSDF](https://bakedsdf.github.io/) implemented in [SDFStudio](https://github.com/zhihao-lin/sdfstudio) for surface reconstruction. Please make sure to use [our custom SDFStudio](https://github.com/zhihao-lin/sdfstudio) for reproducibility. We recommend to create an extra environemnt for this part since CUDA 11.3 has been tested on this repo.
 
-### (Appearance) Training 3DGS
+#### BakedSDF training
+```bash
+# Example command
+ns-train bakedsdf-mlp --vis wandb \
+    --output-dir outputs/<scene name> --experiment-name <experiment name> \
+    --trainer.steps-per-save 1000 \
+    --trainer.steps-per-eval-image 5000 --trainer.steps-per-eval-all-images 50000 \
+    --trainer.max-num-iterations 250001 --trainer.steps-per-eval-batch 5000 \
+    --pipeline.datamanager.train-num-rays-per-batch 2048 \
+    --pipeline.datamanager.eval-num-rays-per-batch 512 \
+    --pipeline.model.sdf-field.inside-outside False \
+    --pipeline.model.background-model none \
+    --pipeline.model.near-plane 0.001 --pipeline.model.far-plane 6.0 \
+    --machine.num-gpus 1 \
+    --pipeline.model.mono-normal-loss-mult 0.1 \
+    panoptic-data \
+    --data <path to your dataset> \
+    --panoptic_data False --mono_normal_data True --panoptic_segment False \
+    --orientation-method none --center-poses False --auto-scale-poses False \
+```
+Generally, a decent surface mesh can be obtained with the command above. However, there are several hyperparameters that you should be careful to set appropriately.
+- For fully captured indoor scenes, such as those in [ScanNet++](https://kaldir.vc.in.tum.de/scannetpp/), set `--pipeline.model.sdf-field.inside-outside` to `True`.
+- For outdoor scenes with distant backgrounds, such as those in the [Tanks & Temples](https://www.tanksandtemples.org/), set `--pipeline.model.background-model` to `mlp`.
+- Adjust `--pipeline.datamanager.train-num-rays-per-batch`, `--pipeline.datamanager.eval-num-rays-per-batch`, and `--pipeline.model.num-neus-samples-per-ray` if you encounter OOM (out-of-memory) errors during training.
 
+#### Mesh extraction & Texture baking
+```bash
+scene=outputs/<scene name>/<experiment name>/bakedsdf-mlp/<timestamp>
+# Extract mesh
+python scripts/extract_mesh.py --load-config $scene/config.yml \
+    --output-path $scene/mesh.ply \
+    --bounding-box-min -2.0 -2.0 -2.0 --bounding-box-max 2.0 2.0 2.0 \
+    --resolution 2048 --marching_cube_threshold 0.001 --create_visibility_mask True --simplify-mesh True
 
-### (Geometry) Estimating scene meshes (BakedSDF-mlp & StreetSurf)
+mkdir $scene/textured
+# Bake texture
+python scripts/texture.py \
+    --load-config $scene/config.yml \
+    --input-mesh-filename $scene/mesh-simplify.ply \
+    --output-dir $scene/textured \
+    --target_num_faces None
+```
+It is better not changing `bounding-box-min` and `bounding-box-max` since camera poses are already normalized within a unit cube in the pose alignment step.
+
+### Training 3DGS & SuGaR
+You could start training 3D gaussian splatting with one command.
+```bash
+bash train_3dgs.sh <your scene name>
+```
+Explanation of several hyperparameters in `train_3dgs.sh`:
+- Optimization parameters:
+    - `lambda_normal`: loss between rendered normal and monocular normal prediction
+    - `lambda_pseudo_normal`: loss between rendered normal and pseudo normal derived from rendered depth
+    - `lambda_anisotropic`: regularize 3D gaussians shape to be isotropic
+- Densification parameters:
+    - consider adjust `size_threshold`and `min_opacity` if the Gaussians are floating excessively.
+- Gaussians initialization parameters `--init_strategy`:
+    - `colmap`: use a point cloud extracted from COLMAP for initialization
+    - `ray_mesh`: use intersection points between camera rays from all training views and the scene mesh for initialization.
+    - `hybrid`: combine both `colmap` and `ray_mesh` for initialization
+    - Note: `ray_mesh` and `hybrid` require a reconstructed scene mesh. Ensure that `--scene_sdf_mesh_path` is specified**
 
 
 ### (Lighting) Estimating light source for indoor scenes
@@ -171,11 +289,12 @@ Details of estimating scene properties (e.g., geometry, appearance, lighting, an
 
 ## :clapper: Start Simulation
 
-### Example demos from Gardenverse
-Please download the preprocessed Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Also, please download the pretrained 3DGS checkpoints and extracted object instances from [here](https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN?usp=sharing). All the parameters are listed in the `opt.py`
+### Example demo for Garden scene
+Please download the preprocessed Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Also, please download the pretrained 3DGS checkpoints and estimated scene properties from [here](https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN?usp=sharing). All the hyperparameters are listed in the `opt.py`.
 
 <!-- ***Need to update with .zip file for gdown*** -->
 ```bash
+# If you encounter an error with gdown, please use the Google Drive link above to download the files.
 mkdir datasets && cd datasets
 gdown --folder https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N
 cd ../
