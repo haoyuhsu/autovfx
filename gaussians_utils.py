@@ -8,11 +8,10 @@ import copy
 
 def check_mesh_path(mesh_path):
     if mesh_path.endswith('.blend'):
-        mesh_path = mesh_path.replace('.blend', '.glb')  # TODO: need to convert .blend to .glb
+        mesh_path = mesh_path.replace('.blend', '.glb')
     return mesh_path
 
 
-# TODO: this function has not been tested
 def get_center_of_mesh(mesh_path):
     '''
     Get the center point of the mesh

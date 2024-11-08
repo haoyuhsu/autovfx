@@ -17,10 +17,10 @@ AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
 - [x] Details of pose extraction (SfM) and pose alignment
 - [x] Details of training 3DGS
 - [x] Details of surface reconstruction
-- [ ] Details of estimating relative scene scale
+- [x] Details of estimating relative scene scale
 - [ ] Code for sampling custom camera trajectory
-- [ ] Details of light estimation
-- [ ] Demonstrate edits on a single casually-captured video
+- [ ] Details of light estimation for indoor scenes
+- [ ] Demo edits on a single casually-captured video
 
 ## :clapper: Prerequisites
 The code has been tested on:
@@ -118,12 +118,14 @@ cd ../..
 ## :clapper: Download pretrained checkpoints, required data and Blender
 
 ### Tracking modules
+We use [DEVA](https://github.com/hkchengrex/Tracking-Anything-with-DEVA) for open-vocabulary video segmentation. 
 ```bash
 cd tracking
 bash download_models.sh
 ```
 
 ### Inpainting modules
+We use [LaMa](https://github.com/advimman/lama) to inpaint the unseen region.
 ```bash
 cd inpaint && mkdir ckpts
 wget https://huggingface.co/smartywu/big-lama/resolve/main/big-lama.zip && unzip big-lama.zip -d ckpts
@@ -266,7 +268,7 @@ You could start training 3D gaussian splatting with one command.
 ```bash
 bash train_3dgs.sh <your scene name>
 ```
-Explanation of several hyperparameters in `train_3dgs.sh`:
+Explanation of several hyperparameters used in `train_3dgs.sh`:
 - Optimization parameters:
     - `lambda_normal`: loss between rendered normal and monocular normal prediction
     - `lambda_pseudo_normal`: loss between rendered normal and pseudo normal derived from rendered depth
@@ -277,20 +279,25 @@ Explanation of several hyperparameters in `train_3dgs.sh`:
     - `colmap`: use a point cloud extracted from COLMAP for initialization
     - `ray_mesh`: use intersection points between camera rays from all training views and the scene mesh for initialization.
     - `hybrid`: combine both `colmap` and `ray_mesh` for initialization
-    - Note: `ray_mesh` and `hybrid` require a reconstructed scene mesh. Ensure that `--scene_sdf_mesh_path` is specified**
+    - **Ensure that `--scene_sdf_mesh_path` is specified when using `ray_mesh` or `hybrid`**
 
+### Estimating relative scene scale
+Use the following script to determine the relative scale between the current scene and a real-world scenario. Then, set the `--scene_scale` parameter to the estimated value during simulation.
+```bash
+python dataset_utils/estimate_scene_scale.py \ 
+    --dataset_dir ./datasets/<your scene name> \
+    --scene_mesh_path ./datasets/<your scene name>/mesh/mesh.obj \
+    --anchor_frame_idx 0
+```
 
-### (Lighting) Estimating light source for indoor scenes
-
-
-### (Semantics) Estimating relative scene scale
-
+### Estimating indoor scenes lighting
+pending.
 
 
 ## :clapper: Start Simulation
 
 ### Example demo for Garden scene
-Please download the preprocessed Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing). Also, please download the pretrained 3DGS checkpoints and estimated scene properties from [here](https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN?usp=sharing). All the hyperparameters are listed in the `opt.py`.
+Please download the preprocessed Garden scene from [here](https://drive.google.com/drive/folders/1eRdSAqDloGXk04JK60v3io6GHWdomy2N?usp=sharing), and the pretrained 3DGS checkpoints and estimated scene properties from [here](https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN?usp=sharing).
 
 <!-- ***Need to update with .zip file for gdown*** -->
 ```bash
@@ -302,7 +309,7 @@ mkdir output && cd output
 gdown --folder https://drive.google.com/drive/folders/1KE8LSA_r-3f2LVlTLJ5k4SHENvbwdAfN
 ```
 
-- Text Prompts: *"Drop 5 basketballs on the table."*
+- Text Prompt: *"Drop 5 basketballs on the table."*
 ```bash
 export OPENAI_API_KEY=/your/openai_api_key/
 export MESHY_API_KEY=/your/meshy_api_key/   # if you want to retrieve generated 3D assets
@@ -327,6 +334,7 @@ python edit_scene.py \
     --deva_dino_threshold 0.45 \
     --is_uv_mesh
 ```
+All the parameters are listed in the `opt.py`. Details of those parameters will be updated soon.
 
 ## :clapper: Citation
 If you find this paper and repository useful for your research, please consider citing: 
@@ -342,4 +350,4 @@ If you find this paper and repository useful for your research, please consider 
 ## :clapper: Acknowledgement
 This project is supported by the Intel AI SRS gift, Meta research grant, the IBM IIDAI Grant and NSF Awards #2331878, #2340254, #2312102, #2414227, and #2404385. Hao-Yu Hsu is supported by Siebel Scholarship. We greatly appreciate the NCSA for providing computing resources. We thank Derek Hoiem, Sarita Adve, Benjamin Ummenhofer, Kai Yuan, Micheal Paulitsch, Katelyn Gao, Quentin Leboutet for helpful discussions.
 
-Our codebase are built based on [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting), [SuGaR](https://github.com/Anttwo/SuGaR), [SDFStudio](https://github.com/autonomousvision/sdfstudio), [DiffusionLight](https://github.com/DiffusionLight/DiffusionLight), [Tracking-Anything-with-DEVA](https://github.com/hkchengrex/Tracking-Anything-with-DEVA), [Objaverse](https://github.com/allenai/objaverse-xl), and the most important [Blender](https://github.com/blender/blender). Thanks for open-sourcing!.
+Our codebase are built based on [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting), [SuGaR](https://github.com/Anttwo/SuGaR), [SDFStudio](https://github.com/autonomousvision/sdfstudio), [DiffusionLight](https://github.com/DiffusionLight/DiffusionLight), [DEVA](https://github.com/hkchengrex/Tracking-Anything-with-DEVA), [Objaverse](https://github.com/allenai/objaverse-xl), and the most important [Blender](https://github.com/blender/blender). Thanks for open-sourcing!.
