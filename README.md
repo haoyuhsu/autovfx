@@ -8,6 +8,8 @@ AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
 
 <sup>1</sup>University of Illinois at Urbana-Champaign
 
+International Conference on 3D Vision (3DV), 2025
+
 ![teasor](docs/images/teasor.jpg)
 
 ## :dart: Progress
@@ -21,6 +23,7 @@ AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
 - [ ] Code for sampling custom camera trajectory
 - [ ] Details of light estimation for indoor scenes
 - [ ] Demo edits on a single casually-captured video
+- [ ] Local gradio app demo
 
 ## :clapper: Prerequisites
 The code has been tested on:
