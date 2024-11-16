@@ -20,9 +20,7 @@ International Conference on 3D Vision (3DV), 2025
 - [x] Details of training 3DGS
 - [x] Details of surface reconstruction
 - [x] Details of estimating relative scene scale
-- [ ] Code for sampling custom camera trajectory
-- [ ] Details of light estimation for indoor scenes
-- [ ] Demo edits on a single casually-captured video
+- [x] Code for sampling custom camera trajectory
 - [ ] Local gradio app demo
 
 ## :clapper: Prerequisites
@@ -98,7 +96,7 @@ pip install -r requirements.txt
 - Install other required packages:
 ```bash
 # Other packages
-pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann geffnetopen_clip_torch sentence-transformers==2.7.0 geffnet mmcv
+pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann geffnetopen_clip_torch sentence-transformers==2.7.0 geffnet mmcv vedo
 
 # PyTorch3D (try one of the commands)
 pip install "git+https://github.com/facebookresearch/pytorch3d.git"
@@ -215,9 +213,15 @@ python dataset_utils/colmap_runner.py \
 ```
 - For details on surface mesh extraction, please refer to the ***Estimate Scene Properties*** section.
 - All cameras are in camera-to-world coordinate with OpenCV format (x: right, y: down, z: front). Please refer to [this tutorial](https://github.com/google-research/multinerf?tab=readme-ov-file#making-your-own-loader-by-implementing-_load_renderings) on conversion between OpenCV and OpenGL camera format.
+- We support sampling custom camera poses along a circular trajectory, please adjust the sampled parameters in `dataset_utils/sample_custom_traj.py` and run:
+```bash
+python dataset_utils/sample_custom_traj.py \
+    --dataset_dir ./datasets/<your scene name> \
+    --traj_name <your trajectory name> \
+    --vis_traj
+```
 
 ## :clapper:  Estimate Scene Properties
-Details of estimating scene properties (e.g., geometry, appearance, lighting, and semantics) will be updated soon.
 
 ### Surface mesh extraction
 We use [BakedSDF](https://bakedsdf.github.io/) implemented in [SDFStudio](https://github.com/zhihao-lin/sdfstudio) for surface reconstruction. Please make sure to use [our custom SDFStudio](https://github.com/zhihao-lin/sdfstudio) for reproducibility. We recommend to create an extra environemnt for this part since CUDA 11.3 has been tested on this repo.
@@ -292,9 +296,6 @@ python dataset_utils/estimate_scene_scale.py \
     --scene_mesh_path ./datasets/<your scene name>/mesh/mesh.obj \
     --anchor_frame_idx 0
 ```
-
-### Estimating indoor scenes lighting
-pending.
 
 
 ## :clapper: Start Simulation

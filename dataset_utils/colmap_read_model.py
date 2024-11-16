@@ -229,34 +229,64 @@ def read_points3D_text(path):
     return points3D
 
 
+# def read_points3D_binary(path_to_model_file):
+#   """
+#   see: src/base/reconstruction.cc
+#       void Reconstruction::ReadPoints3DBinary(const std::string& path)
+#       void Reconstruction::WritePoints3DBinary(const std::string& path)
+#   """
+#   points3D = {}
+#   with open(path_to_model_file, "rb") as fid:
+#     num_points = read_next_bytes(fid, 8, "Q")[0]
+#     for point_line_index in range(num_points):
+#       binary_point_line_properties = read_next_bytes(
+#           fid, num_bytes=43, format_char_sequence="QdddBBBd")
+#       point3D_id = binary_point_line_properties[0]
+#       xyz = np.array(binary_point_line_properties[1:4])
+#       rgb = np.array(binary_point_line_properties[4:7])
+#       error = np.array(binary_point_line_properties[7])
+#       track_length = read_next_bytes(
+#           fid, num_bytes=8, format_char_sequence="Q")[0]
+#       track_elems = read_next_bytes(
+#           fid, num_bytes=8*track_length,
+#           format_char_sequence="ii"*track_length)
+#       image_ids = np.array(tuple(map(int, track_elems[0::2])))
+#       point2D_idxs = np.array(tuple(map(int, track_elems[1::2])))
+#       points3D[point3D_id] = Point3D(
+#           id=point3D_id, xyz=xyz, rgb=rgb,
+#           error=error, image_ids=image_ids,
+#           point2D_idxs=point2D_idxs)
+#   return points3D
+
+
 def read_points3D_binary(path_to_model_file):
   """
   see: src/base/reconstruction.cc
       void Reconstruction::ReadPoints3DBinary(const std::string& path)
       void Reconstruction::WritePoints3DBinary(const std::string& path)
   """
-  points3D = {}
   with open(path_to_model_file, "rb") as fid:
     num_points = read_next_bytes(fid, 8, "Q")[0]
-    for point_line_index in range(num_points):
+
+    xyzs = np.empty((num_points, 3))
+    rgbs = np.empty((num_points, 3))
+    errors = np.empty((num_points, 1))
+
+    for p_id in range(num_points):
       binary_point_line_properties = read_next_bytes(
-          fid, num_bytes=43, format_char_sequence="QdddBBBd")
-      point3D_id = binary_point_line_properties[0]
+        fid, num_bytes=43, format_char_sequence="QdddBBBd")
       xyz = np.array(binary_point_line_properties[1:4])
       rgb = np.array(binary_point_line_properties[4:7])
       error = np.array(binary_point_line_properties[7])
       track_length = read_next_bytes(
-          fid, num_bytes=8, format_char_sequence="Q")[0]
+        fid, num_bytes=8, format_char_sequence="Q")[0]
       track_elems = read_next_bytes(
-          fid, num_bytes=8*track_length,
-          format_char_sequence="ii"*track_length)
-      image_ids = np.array(tuple(map(int, track_elems[0::2])))
-      point2D_idxs = np.array(tuple(map(int, track_elems[1::2])))
-      points3D[point3D_id] = Point3D(
-          id=point3D_id, xyz=xyz, rgb=rgb,
-          error=error, image_ids=image_ids,
-          point2D_idxs=point2D_idxs)
-  return points3D
+        fid, num_bytes=8*track_length,
+        format_char_sequence="ii"*track_length)
+      xyzs[p_id] = xyz
+      rgbs[p_id] = rgb
+      errors[p_id] = error
+  return xyzs, rgbs, errors
 
 
 def read_model(path, ext=".bin"):
