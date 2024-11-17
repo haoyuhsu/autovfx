@@ -338,7 +338,49 @@ python edit_scene.py \
     --deva_dino_threshold 0.45 \
     --is_uv_mesh
 ```
-All the parameters are listed in the `opt.py`. Details of those parameters will be updated soon.
+All the parameters are listed in the `opt.py`.
+
+<details>
+<summary><span style="font-weight: bold;">Arguments used in opt.py</span></summary>
+
+  ##### --source_path
+  Path to the dataset directory.
+  ##### --model_path
+  Path to the output directory.
+  ##### --gaussians_ckpt_path
+  Path to the Gaussian model checkpoint (.pt for SuGaR, .ply for vanilla 3DGS).
+  ##### --scene_mesh_path
+  Path to the reconstructed scene mesh (.ply or .obj).
+  ##### --emitter_mesh_path
+  Path to the emitter mesh for indoor lighting (.obj) (only used for indoor scenes).
+
+  ##### --edit_text
+  Editing instructions.
+  ##### --custom_traj_name
+  Filename of custom trajectory (default: training cameras).
+  ##### --anchor_frame_idx
+  Index of the frame used for single-view simulation (default: 0).
+  ##### --scene_scale
+  Relative scale of the scene. If an object in the scene is 1 unit tall but is known to be 0.7 meters in the real world, the scene_scale is 0.7. This parameter is crucial for ensuring accurate size correspondence and realistic simulation or rendering.
+  ##### --blender_output_dir_name and --blender_config_name
+  Name of Blender output folder and Blender .json config.
+  ##### --render_type
+  Choose 'MULTI_VIEW' to render frames along the entire camera trajectory, or 'SINGLE_VIEW' for static rendering from a single camera position (i.e., anchor_frame_idx).
+  ##### --num_frames
+  Specifies the number of frames to simulate and render (only used when '--render_type=SINGLE_VIEW').
+
+  ##### --is_uv_mesh
+  Enable this option if the scene mesh have UV textures.
+  ##### --is_indoor_scene
+  Enable this option if the scene is an indoor scene.
+  ##### --waymo_scene
+  Enable this option to simulate on Waymo road scenes. A different prompt for GPT-4 is used to fulfill road scene simulations, similar to ChatSim.
+
+  ##### --deva_dino_threshold
+  Increase this threshold to reduce excessive object detection. (0.7 is optimal, but lower to 0.45 for hard-to-detect cases).
+
+</details>
+
 
 ## :clapper: Citation
 If you find this paper and repository useful for your research, please consider citing: 
