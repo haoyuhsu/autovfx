@@ -52,8 +52,8 @@ def estimate_object_scale(img_path: str = None, object_name: str = None) -> floa
         {"role": "user", "content": user2},
     ]
 
-    model_name = "gpt-4-vision-preview" if has_img else "gpt-4-1106-preview"
-    # model_name = "gpt-4o-2024-05-13"
+    # model_name = "gpt-4-vision-preview" if has_img else "gpt-4-1106-preview"  # `gpt-4-vision-preview` is deprecated recently
+    model_name = "gpt-4o-2024-05-13"
 
     print('GPT model used:', model_name)
 
