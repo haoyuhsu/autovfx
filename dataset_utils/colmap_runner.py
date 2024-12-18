@@ -320,3 +320,14 @@ if __name__ == '__main__':
   runner_with_known_poses(args.dataset_dir, colmap_second_output_dir)
   cmd('cp -r ' + colmap_second_output_dir + '/sparse ' + args.dataset_dir)
 
+  ##### (5) convert the camera poses from OpenCV to OpenGL (used in SDF training) #####
+  transforms = {}
+  with open(os.path.join(args.dataset_dir, "transforms.json"), "r") as f:
+    transforms = json.load(f)
+  for i in range(len(transforms["frames"])):
+    c2w_opencv = np.array(transforms["frames"][i]["transform_matrix"])
+    c2w_opengl = c2w_opencv @ np.diag([1, -1, -1, 1])
+    transforms["frames"][i]["transform_matrix"] = c2w_opengl.tolist()
+  with open(os.path.join(args.dataset_dir, "transforms.json"), "w") as f:
+    json.dump(transforms, f, indent=4)
+    

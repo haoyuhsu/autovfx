@@ -21,7 +21,7 @@ def get_normal_with_DSINE(image_dir, output_dir):
         cv2.imwrite(output_normal_path, normal)
 
 
-def get_normal_with_Metric3D(iamge_dir, output_dir):
+def get_normal_with_Metric3D(image_dir, output_dir):
     model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_large', pretrain=True)
     model.cuda().eval()
 
