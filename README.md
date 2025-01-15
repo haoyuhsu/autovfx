@@ -4,7 +4,7 @@ AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
 
 ### [Project Page](https://haoyuhsu.github.io/autovfx-website/) | [Paper](https://arxiv.org/abs/2411.02394)
 
-[Hao-Yu Hsu<sup>1</sup>](https://haoyuhsu.github.io/), [Zhi-Hao Lin<sup>1</sup>](https://zhihao-lin.github.io/), [Albert J. Zhai<sup>1</sup>](https://ajzhai.github.io/), [Hongchi Xia<sup>1</sup>](https://xiahongchi.github.io/), [Shenlong Wang<sup>1</sup>](https://shenlong.web.illinois.edu/)
+[Hao-Yu Hsu<sup>1</sup>](https://haoyuhsu.github.io/), [Chih-Hao Lin<sup>1</sup>](https://chih-hao-lin.github.io/), [Albert J. Zhai<sup>1</sup>](https://ajzhai.github.io/), [Hongchi Xia<sup>1</sup>](https://xiahongchi.github.io/), [Shenlong Wang<sup>1</sup>](https://shenlong.web.illinois.edu/)
 
 <sup>1</sup>University of Illinois at Urbana-Champaign
 
