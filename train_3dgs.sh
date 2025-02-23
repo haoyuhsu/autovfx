@@ -46,7 +46,7 @@ python sugar/gaussian_splatting/train.py \
     --lambda_alpha ${LAMBDA_ALPHA} \
     --lambda_anisotropic ${LAMBDA_ANISOTROPIC} \
     --data_device cpu \
-    --scene_sdf_mesh_path ../datasets/${DATASET_NAME}/${SCENE_NAME}/mesh/mesh.obj \
+    --scene_sdf_mesh_path ./datasets/${SCENE_NAME}/mesh/mesh.obj \
     --init_strategy hybrid \
     --size_threshold ${SIZE_THRESHOLD} \
     --min_opacity ${OPACITY}
