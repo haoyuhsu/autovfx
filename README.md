@@ -96,7 +96,7 @@ pip install -r requirements.txt
 - Install other required packages:
 ```bash
 # Other packages
-pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann geffnetopen_clip_torch sentence-transformers==2.7.0 geffnet mmcv vedo
+pip install openai objaverse kornia wandb open3d plyfile imageio-ffmpeg einops e3nn pygltflib lpips scann geffnet open_clip_torch sentence-transformers==2.7.0 geffnet mmcv vedo
 
 # PyTorch3D (try one of the commands)
 pip install "git+https://github.com/facebookresearch/pytorch3d.git"
