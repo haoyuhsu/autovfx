@@ -133,6 +133,9 @@ wget https://huggingface.co/smartywu/big-lama/resolve/main/big-lama.zip && unzip
 rm big-lama.zip
 ```
 
+### Lighting modules
+We use [DiffusionLight](https://github.com/DiffusionLight/DiffusionLight) to estimate the HDR environmental map from a single image. Please download the pre-trained checkpoints from [here](https://drive.google.com/drive/folders/1O8znyWTeaC68p_wrwgANT14iuKKqbQNW?usp=sharing), and place `models` folder under `autovfx/lighting/diffusionlight`.
+
 ### Asset retrieval data
 We use [CLIP](https://github.com/mlfoundations/open_clip) & [SBERT](https://sbert.net) features to annotate assets in [Objaverse](https://github.com/allenai/objaverse-xl), and we use SBERT features to annotate PBR materials in [PolyHaven](https://polyhaven.com). The preprocessed embeddings of both Objaverse 3D assets and PolyHaven PBR materials need to be downloaded. 
 
