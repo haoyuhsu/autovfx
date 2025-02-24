@@ -2237,6 +2237,8 @@ def run_blender_render(config_path):
     if is_waymo_scene:
         print("=====> Add sun lighting for waymo scene")
         sun_dir = np.array(config['sun_dir'])
+        sun_dir = sun_dir / np.linalg.norm(sun_dir)
+        sun_dir = -sun_dir
         add_sun_lighting(1.0, sun_dir)
         COLLISION_MARGIN = 0.01
         DOMAIN_HEIGHT = 6.0
