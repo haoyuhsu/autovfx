@@ -10,7 +10,7 @@ AutoVFX: Physically Realistic Video Editing from Natural Language Instructions.
 
 International Conference on 3D Vision (3DV), 2025
 
-![teasor](docs/images/teasor.jpg)
+![teaser](docs/images/teasor.jpg)
 
 ## :dart: Progress
 - [x] Environment Setup
@@ -190,7 +190,7 @@ The expected folder structure of the dataset will be:
 |           ├── points3D.bin
 |     ├── transforms.json
 ```
-### Custom dataest
+### Custom dataset
 For your custom dataset, please follow these steps:
 - Create a folder and put your images under `images`. The folder will be like this:
 ```
@@ -215,7 +215,7 @@ python dataset_utils/colmap_runner.py \
     --text_prompt ground
 ```
 - For details on surface mesh extraction, please refer to the ***Estimate Scene Properties*** section.
-- All cameras are in camera-to-world coordinate with OpenCV format (x: right, y: down, z: front). Please refer to [this tutorial](https://github.com/google-research/multinerf?tab=readme-ov-file#making-your-own-loader-by-implementing-_load_renderings) on conversion between OpenCV and OpenGL camera format.
+- All cameras are in camera-to-world coordinates with OpenCV format (x: right, y: down, z: front). Please refer to [this tutorial](https://github.com/google-research/multinerf?tab=readme-ov-file#making-your-own-loader-by-implementing-_load_renderings) on conversion between OpenCV and OpenGL camera format.
 - We support sampling custom camera poses along a circular trajectory, please adjust the sampled parameters in `dataset_utils/sample_custom_traj.py` and run:
 ```bash
 python dataset_utils/sample_custom_traj.py \
@@ -227,7 +227,7 @@ python dataset_utils/sample_custom_traj.py \
 ## :clapper:  Estimate Scene Properties
 
 ### Surface mesh extraction
-We use [BakedSDF](https://bakedsdf.github.io/) implemented in [SDFStudio](https://github.com/zhihao-lin/sdfstudio) for surface reconstruction. Please make sure to use [our custom SDFStudio](https://github.com/zhihao-lin/sdfstudio) for reproducibility. We recommend to create an extra environemnt for this part since CUDA 11.3 has been tested on this repo.
+We use [BakedSDF](https://bakedsdf.github.io/) implemented in [SDFStudio](https://github.com/zhihao-lin/sdfstudio) for surface reconstruction. Please make sure to use [our custom SDFStudio](https://github.com/zhihao-lin/sdfstudio) for reproducibility. We recommend to create an extra environment for this part since CUDA 11.3 has been tested on this repo.
 
 #### BakedSDF training
 ```bash
@@ -271,7 +271,7 @@ python scripts/texture.py \
     --output-dir $scene/textured \
     --target_num_faces None
 ```
-It is better not changing `bounding-box-min` and `bounding-box-max` since camera poses are already normalized within a unit cube in the pose alignment step.
+It is better not to change `bounding-box-min` and `bounding-box-max` since camera poses are already normalized within a unit cube in the pose alignment step.
 
 ### Training 3DGS & SuGaR
 You could start training 3D gaussian splatting with one command.
@@ -399,4 +399,4 @@ If you find this paper and repository useful for your research, please consider 
 ## :clapper: Acknowledgement
 This project is supported by the Intel AI SRS gift, Meta research grant, the IBM IIDAI Grant and NSF Awards #2331878, #2340254, #2312102, #2414227, and #2404385. Hao-Yu Hsu is supported by Siebel Scholarship. We greatly appreciate the NCSA for providing computing resources. We thank Derek Hoiem, Sarita Adve, Benjamin Ummenhofer, Kai Yuan, Micheal Paulitsch, Katelyn Gao, Quentin Leboutet for helpful discussions.
 
-Our codebase are built based on [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting), [SuGaR](https://github.com/Anttwo/SuGaR), [SDFStudio](https://github.com/autonomousvision/sdfstudio), [DiffusionLight](https://github.com/DiffusionLight/DiffusionLight), [DEVA](https://github.com/hkchengrex/Tracking-Anything-with-DEVA), [Objaverse](https://github.com/allenai/objaverse-xl), and the most important [Blender](https://github.com/blender/blender). Thanks for open-sourcing!.
+Our codebase is built based on [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting), [SuGaR](https://github.com/Anttwo/SuGaR), [SDFStudio](https://github.com/autonomousvision/sdfstudio), [DiffusionLight](https://github.com/DiffusionLight/DiffusionLight), [DEVA](https://github.com/hkchengrex/Tracking-Anything-with-DEVA), [Objaverse](https://github.com/allenai/objaverse-xl), and the most important [Blender](https://github.com/blender/blender). Thanks for open-sourcing!
